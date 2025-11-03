@@ -3,7 +3,11 @@ import 'package:uniperks/auth/login_page.dart';
 import 'package:uniperks/services/user_service.dart';
 import 'package:uniperks/services/quiz_service.dart';
 import 'package:uniperks/services/product_service.dart';
+import 'package:uniperks/services/voucher_service.dart';
 import 'package:uniperks/models/product.dart';
+import 'package:uniperks/models/voucher.dart';
+import 'package:uniperks/models/quiz_question.dart';
+import 'package:uniperks/models/quiz_module.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -14,6 +18,29 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   String selectedQuizModule = 'general_knowledge';
+  List<Map<String, dynamic>> registeredUsers = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    try {
+      final users = await UserService.getAllUsers();
+      setState(() {
+        registeredUsers = users;
+        isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading users: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   void _logout(BuildContext context) {
     Navigator.pushReplacement(
@@ -25,28 +52,58 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
+        backgroundColor: Colors.white,
         appBar: AppBar(
-          title: const Text('Admin Dashboard'),
-          backgroundColor: Colors.deepPurple,
-          foregroundColor: Colors.white,
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/logo/UniPerks.png',
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Admin Dashboard',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Color(0xFF0066CC),
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.white),
           actions: [
             IconButton(
-              icon: const Icon(Icons.logout),
+              icon: const Icon(Icons.logout, color: Colors.white),
               onPressed: () => _logout(context),
               tooltip: 'Logout',
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             indicatorColor: Colors.white,
-            tabs: [
+            tabs: const [
               Tab(icon: Icon(Icons.dashboard), text: 'Overview'),
               Tab(icon: Icon(Icons.people), text: 'Users'),
               Tab(icon: Icon(Icons.quiz), text: 'Quiz'),
               Tab(icon: Icon(Icons.inventory), text: 'Products'),
+              Tab(icon: Icon(Icons.card_giftcard), text: 'Vouchers'),
             ],
           ),
         ),
@@ -56,6 +113,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             _buildUsersTab(),
             _buildQuizTab(),
             _buildProductsTab(),
+            _buildVouchersTab(),
           ],
         ),
       ),
@@ -63,15 +121,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildOverviewTab() {
-    final registeredUsers = UserService.getAllUsers();
-    final quizModules = QuizService.getQuizModules();
     final totalProducts = ProductService.getAllProducts();
-    
-    // Calculate total questions across all modules
-    int totalQuestions = 0;
-    for (var module in quizModules) {
-      totalQuestions += module.totalQuestions;
-    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -83,7 +133,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
-                  const Icon(Icons.admin_panel_settings, size: 40, color: Colors.deepPurple),
+                  const Icon(
+                    Icons.admin_panel_settings,
+                    size: 40,
+                    color: Colors.deepPurple,
+                  ),
                   const SizedBox(width: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,28 +172,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
               const SizedBox(width: 10),
               Expanded(
                 child: _buildStatCard(
-                  'Quiz Modules',
-                  '${quizModules.length}',
-                  Icons.category,
-                  Colors.green,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  'Total Questions',
-                  '$totalQuestions',
-                  Icons.quiz,
-                  Colors.orange,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildStatCard(
                   'Products',
                   '${totalProducts.length}',
                   Icons.inventory,
@@ -149,44 +181,50 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ],
           ),
           const SizedBox(height: 20),
-          Text(
-            'Quiz Modules Overview',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 10),
-          // Changed from Expanded to Container with fixed height to make it scrollable within the SingleChildScrollView
-          SizedBox(
-            height: 300, // Fixed height for the quiz modules list
-            child: ListView.builder(
-              itemCount: quizModules.length,
-              itemBuilder: (context, index) {
-                final module = quizModules[index];
-                return Card(
-                  child: ListTile(
-                    leading: Text(
-                      module.icon,
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                    title: Text(module.title),
-                    subtitle: Text('${module.totalQuestions} questions • ${module.coinsReward} total coins'),
-                    trailing: Chip(
-                      label: Text(module.category),
-                      backgroundColor: Colors.deepPurple.withOpacity(0.1),
-                    ),
+          Text('Quick Actions', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '📚 Quiz Management',
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                );
-              },
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Manage quiz modules, add/edit/delete questions, and track question statistics.',
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Go to the "Quiz Management" tab to manage questions.',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 20), // Add some bottom padding
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
-      elevation: 4,
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -200,7 +238,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            Text(title, style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -208,7 +252,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildUsersTab() {
-    final registeredUsers = UserService.getAllUsers();
+    // Use state variable loaded in initState
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -232,20 +279,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 )
               : ListView.builder(
                   shrinkWrap: true, // Allow ListView to size itself
-                  physics: const NeverScrollableScrollPhysics(), // Disable ListView scrolling since parent is scrollable
+                  physics:
+                      const NeverScrollableScrollPhysics(), // Disable ListView scrolling since parent is scrollable
                   itemCount: registeredUsers.length,
                   itemBuilder: (context, index) {
                     final user = registeredUsers[index];
                     return Card(
                       child: ListTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.person),
-                        ),
+                        leading: const CircleAvatar(child: Icon(Icons.person)),
                         title: Text(user['username']!),
                         subtitle: Text(user['email']!),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteUser(user['username']!, index),
+                          onPressed: () =>
+                              _deleteUser(user['username']!, index),
                         ),
                       ),
                     );
@@ -258,78 +305,115 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildQuizTab() {
-    final modules = QuizService.getQuizModules();
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        QuizService.getQuizModules(),
+        QuizService.getAllQuestions(),
+      ]),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Module Selection
-          Row(
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final modules = snapshot.data![0] as List<QuizModule>;
+        final allQuestions = snapshot.data![1] as List<QuizQuestion>;
+
+        // If no module selected or module doesn't exist, select first available
+        if (modules.isNotEmpty) {
+          final moduleExists = modules.any((m) => m.id == selectedQuizModule);
+          if (!moduleExists) {
+            selectedQuizModule = modules.first.id;
+          }
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded( // Wrap text in Expanded to prevent overflow
-                child: Text(
-                  'Quiz Management',
-                  style: Theme.of(context).textTheme.headlineMedium,
+              // Module Selection
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Quiz Management',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddQuestionDialog(modules),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Question'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Module Tabs
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: modules.map((module) {
+                    final isSelected = module.id == selectedQuizModule;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              module.icon,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(module.title),
+                          ],
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            selectedQuizModule = module.id;
+                          });
+                        },
+                        selectedColor: Colors.deepPurple.withOpacity(0.3),
+                        checkmarkColor: Colors.deepPurple,
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
-              ElevatedButton.icon(
-                onPressed: () => _showAddQuestionDialog(),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Question'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
-                ),
-              ),
+              const SizedBox(height: 16),
+
+              // Questions List
+              _buildQuestionsList(modules, allQuestions),
+              const SizedBox(height: 20),
             ],
           ),
-          const SizedBox(height: 16),
-          
-          // Module Tabs
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: modules.map((module) {
-                final isSelected = module.id == selectedQuizModule;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(module.icon, style: const TextStyle(fontSize: 16)),
-                        const SizedBox(width: 4),
-                        Text(module.title),
-                      ],
-                    ),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        selectedQuizModule = module.id;
-                      });
-                    },
-                    selectedColor: Colors.deepPurple.withOpacity(0.3),
-                    checkmarkColor: Colors.deepPurple,
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Questions List
-          _buildQuestionsList(),
-          const SizedBox(height: 20), // Add some bottom padding
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildQuestionsList() {
-    final questions = QuizService.getQuestionsByModule(selectedQuizModule);
-    final selectedModule = QuizService.getQuizModules().firstWhere((m) => m.id == selectedQuizModule);
+  Widget _buildQuestionsList(
+    List<QuizModule> modules,
+    List<QuizQuestion> allQuestions,
+  ) {
+    // Filter questions for selected module
+    final questions = allQuestions
+        .where((q) => q.moduleId == selectedQuizModule)
+        .toList();
+    final selectedModule = modules.firstWhere(
+      (m) => m.id == selectedQuizModule,
+      orElse: () => modules.first,
+    );
 
     if (questions.isEmpty) {
       return SizedBox(
@@ -338,10 +422,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                selectedModule.icon,
-                style: const TextStyle(fontSize: 64),
-              ),
+              Text(selectedModule.icon, style: const TextStyle(fontSize: 64)),
               const SizedBox(height: 16),
               Text(
                 'No questions in ${selectedModule.title}',
@@ -364,7 +445,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return Card(
           child: ExpansionTile(
             title: Text(
-              question['question'],
+              question.question,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -372,11 +453,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  Icon(Icons.monetization_on, size: 16, color: Colors.amber),
-                  Text(' ${question['coins']} coins'),
+                  const Icon(Icons.star, size: 16, color: Colors.amber),
+                  Text(' ${question.difficultyName}'),
                   const SizedBox(width: 16),
-                  Icon(Icons.check_circle, size: 16, color: Colors.green),
-                  Text(' Answer: ${question['answers'][question['correctAnswer']]}'),
+                  const Icon(
+                    Icons.monetization_on,
+                    size: 16,
+                    color: Colors.amber,
+                  ),
+                  Text(' ${question.coins} coins'),
+                  const SizedBox(width: 16),
+                  const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                  Text(' Answer: ${question.answers[question.correctAnswer]}'),
                 ],
               ),
             ),
@@ -385,11 +473,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.edit, color: Colors.blue),
-                  onPressed: () => _showEditQuestionDialog(question, index),
+                  onPressed: () => _showEditQuestionDialog(question, modules),
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteQuestion(index),
+                  onPressed: () => _deleteQuestion(question.id),
                 ),
               ],
             ),
@@ -399,20 +487,29 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Answer Options:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ...List.generate(question['answers'].length, (i) {
+                    const Text(
+                      'Answer Options:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    ...List.generate(question.answers.length, (i) {
                       return Padding(
                         padding: const EdgeInsets.only(left: 16, top: 4),
                         child: Row(
                           children: [
                             Icon(
-                              i == question['correctAnswer'] ? Icons.check_circle : Icons.radio_button_unchecked,
-                              color: i == question['correctAnswer'] ? Colors.green : Colors.grey,
+                              i == question.correctAnswer
+                                  ? Icons.check_circle
+                                  : Icons.radio_button_unchecked,
+                              color: i == question.correctAnswer
+                                  ? Colors.green
+                                  : Colors.grey,
                               size: 16,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text('${String.fromCharCode(65 + i)}. ${question['answers'][i]}'),
+                              child: Text(
+                                '${String.fromCharCode(65 + i)}. ${question.answers[i]}',
+                              ),
                             ),
                           ],
                         ),
@@ -438,7 +535,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         children: [
           Row(
             children: [
-              Expanded( // Wrap text in Expanded to prevent overflow
+              Expanded(
+                // Wrap text in Expanded to prevent overflow
                 child: Text(
                   'Products (${products.length})',
                   style: Theme.of(context).textTheme.headlineMedium,
@@ -463,7 +561,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.inventory, size: 64, color: Colors.grey[400]),
+                        Icon(
+                          Icons.inventory,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
                         const SizedBox(height: 16),
                         const Text(
                           'No products yet',
@@ -496,7 +598,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(product.description, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text(
+                              product.description,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                             const SizedBox(height: 4),
                             SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
@@ -506,21 +612,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   if (product.discount > 0) ...[
                                     const SizedBox(width: 8),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: Colors.red,
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         '${product.discount}% OFF',
-                                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                        ),
                                       ),
                                     ),
                                   ],
                                   const SizedBox(width: 8),
                                   Chip(
                                     label: Text(product.category),
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ],
                               ),
@@ -532,11 +645,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           children: [
                             IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => _showEditProductDialog(product, index),
+                              onPressed: () =>
+                                  _showEditProductDialog(product, index),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _deleteProduct(product.name, index),
+                              onPressed: () =>
+                                  _deleteProduct(product.name, index),
                             ),
                           ],
                         ),
@@ -551,23 +666,197 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  Widget _buildVouchersTab() {
+    return FutureBuilder<List<Voucher>>(
+      future: VoucherService.getAllVouchers(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final vouchers = snapshot.data ?? [];
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Vouchers (${vouchers.length})',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddVoucherDialog(),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Voucher'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF0066CC),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              vouchers.isEmpty
+                  ? SizedBox(
+                      height: 200,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.card_giftcard,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No vouchers yet',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text('Add some vouchers to get started'),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: vouchers.length,
+                      itemBuilder: (context, index) {
+                        final voucher = vouchers[index];
+                        return _buildVoucherCard(voucher, index);
+                      },
+                    ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVoucherCard(Voucher voucher, int index) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Color(0xFF0066CC).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.card_giftcard, color: Color(0xFF0066CC)),
+        ),
+        title: Text(voucher.title),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              voucher.description,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                Chip(
+                  label: Text('${voucher.discount}% OFF'),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                Chip(
+                  label: Text('${voucher.coinsRequired} coins'),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                Chip(
+                  label: Text(
+                    voucher.active ? 'Active' : 'Inactive',
+                    style: TextStyle(
+                      color: voucher.active ? Colors.green : Colors.red,
+                    ),
+                  ),
+                  backgroundColor: voucher.active
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.red.withOpacity(0.1),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(
+                voucher.active ? Icons.check_circle : Icons.cancel,
+                color: voucher.active ? Colors.green : Colors.grey,
+              ),
+              onPressed: () async {
+                await VoucherService.toggleVoucherActive(
+                  voucher.id,
+                  voucher.active,
+                );
+                setState(() {});
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              onPressed: () => _showEditVoucherDialog(voucher),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () => _deleteVoucher(voucher),
+            ),
+          ],
+        ),
+        isThreeLine: true,
+      ),
+    );
+  }
+
   // Dialog methods remain the same as they were already properly handled
-  void _showAddQuestionDialog() {
-    _showQuestionDialog();
+  void _showAddQuestionDialog(List modules) {
+    _showQuestionDialog(modules: modules);
   }
 
-  void _showEditQuestionDialog(Map<String, dynamic> question, int index) {
-    _showQuestionDialog(question: question, index: index);
+  void _showEditQuestionDialog(QuizQuestion question, List modules) {
+    _showQuestionDialog(modules: modules, question: question);
   }
 
-  void _showQuestionDialog({Map<String, dynamic>? question, int? index}) {
+  void _showQuestionDialog({required List modules, QuizQuestion? question}) {
     final isEditing = question != null;
-    final questionController = TextEditingController(text: question?['question'] ?? '');
-    final coinsController = TextEditingController(text: question?['coins']?.toString() ?? '');
-    final List<TextEditingController> answerControllers = List.generate(4, (i) => 
-        TextEditingController(text: question?['answers']?[i] ?? ''));
-    int correctAnswer = question?['correctAnswer'] ?? 0;
-    String currentModule = selectedQuizModule;
+    final questionController = TextEditingController(
+      text: question?.question ?? '',
+    );
+    int difficulty = question?.difficulty ?? 1; // 1=Easy, 2=Medium, 3=Hard
+    final List<TextEditingController> answerControllers = List.generate(
+      4,
+      (i) => TextEditingController(
+        text: i < (question?.answers.length ?? 0) ? question!.answers[i] : '',
+      ),
+    );
+    int correctAnswer = question?.correctAnswer ?? 0;
+    String currentModule = question?.moduleId ?? selectedQuizModule;
 
     showDialog(
       context: context,
@@ -587,23 +876,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         labelText: 'Quiz Module',
                         border: OutlineInputBorder(),
                       ),
-                      items: QuizService.getQuizModules().map((module) => 
-                        DropdownMenuItem(
-                          value: module.id,
-                          child: Row(
-                            children: [
-                              Text(module.icon, style: const TextStyle(fontSize: 16)),
-                              const SizedBox(width: 8),
-                              Text(module.title),
-                            ],
-                          ),
-                        )
-                      ).toList(),
-                      onChanged: isEditing ? null : (value) {
-                        setDialogState(() {
-                          currentModule = value!;
-                        });
-                      },
+                      items: modules
+                          .map<DropdownMenuItem<String>>(
+                            (module) => DropdownMenuItem<String>(
+                              value: module.id,
+                              child: Row(
+                                children: [
+                                  Text(
+                                    module.icon,
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(module.title),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: isEditing
+                          ? null
+                          : (value) {
+                              setDialogState(() {
+                                currentModule = value!;
+                              });
+                            },
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -615,16 +911,39 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       maxLines: 3,
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      controller: coinsController,
+
+                    // Difficulty Selector
+                    DropdownButtonFormField<int>(
+                      value: difficulty,
                       decoration: const InputDecoration(
-                        labelText: 'Coins Reward',
+                        labelText: 'Difficulty',
                         border: OutlineInputBorder(),
                       ),
-                      keyboardType: TextInputType.number,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 1,
+                          child: Text('Easy (1 coin)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 2,
+                          child: Text('Medium (1 coin)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 3,
+                          child: Text('Hard (2 coins)'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setDialogState(() {
+                          difficulty = value!;
+                        });
+                      },
                     ),
                     const SizedBox(height: 16),
-                    const Text('Answer Options:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Answer Options:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     ...List.generate(4, (i) {
                       return Padding(
                         padding: const EdgeInsets.only(top: 8),
@@ -643,7 +962,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               child: TextField(
                                 controller: answerControllers[i],
                                 decoration: InputDecoration(
-                                  labelText: 'Option ${String.fromCharCode(65 + i)}',
+                                  labelText:
+                                      'Option ${String.fromCharCode(65 + i)}',
                                   border: const OutlineInputBorder(),
                                 ),
                               ),
@@ -661,25 +981,43 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (questionController.text.isNotEmpty &&
-                        coinsController.text.isNotEmpty &&
-                        answerControllers.every((controller) => controller.text.isNotEmpty)) {
-                      final newQuestion = {
-                        'question': questionController.text,
-                        'answers': answerControllers.map((c) => c.text).toList(),
-                        'correctAnswer': correctAnswer,
-                        'coins': int.tryParse(coinsController.text) ?? 0,
-                      };
+                        answerControllers.every(
+                          (controller) => controller.text.isNotEmpty,
+                        )) {
+                      final newQuestion = QuizQuestion(
+                        id: question?.id ?? 0, // Will be generated by DB if new
+                        moduleId: currentModule,
+                        question: questionController.text,
+                        answers: answerControllers.map((c) => c.text).toList(),
+                        correctAnswer: correctAnswer,
+                        difficulty: difficulty,
+                      );
 
-                      if (isEditing && index != null) {
-                        QuizService.updateQuestion(selectedQuizModule, index, newQuestion);
+                      bool success;
+                      if (isEditing) {
+                        success = await QuizService.updateQuestion(
+                          question.id,
+                          newQuestion,
+                        );
                       } else {
-                        QuizService.addQuestion(newQuestion, currentModule);
+                        success = await QuizService.addQuestion(newQuestion);
                       }
 
-                      Navigator.pop(context);
-                      setState(() {});
+                      if (mounted) {
+                        Navigator.pop(context);
+                        if (success) {
+                          setState(() {}); // Refresh the list
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to save question'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
                     }
                   },
                   child: Text(isEditing ? 'Update' : 'Add'),
@@ -705,10 +1043,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                UserService.removeUser(index);
-                Navigator.pop(context);
-                setState(() {});
+              onPressed: () async {
+                await UserService.removeUser(username);
+                await _loadUsers();
+                if (mounted) {
+                  Navigator.pop(context);
+                }
               },
               child: const Text('Delete', style: TextStyle(color: Colors.red)),
             ),
@@ -718,7 +1058,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  void _deleteQuestion(int index) {
+  void _deleteQuestion(int questionId) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -731,10 +1071,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                QuizService.removeQuestion(selectedQuizModule, index);
-                Navigator.pop(context);
-                setState(() {});
+              onPressed: () async {
+                final success = await QuizService.deleteQuestion(questionId);
+                if (mounted) {
+                  Navigator.pop(context);
+                  if (success) {
+                    setState(() {}); // Refresh the list
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to delete question'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
               },
               child: const Text('Delete', style: TextStyle(color: Colors.red)),
             ),
@@ -770,6 +1121,218 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  void _deleteVoucher(Voucher voucher) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Voucher'),
+          content: Text('Are you sure you want to delete "${voucher.title}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      await VoucherService.deleteVoucher(voucher.id);
+      setState(() {});
+    }
+  }
+
+  void _showAddVoucherDialog() {
+    _showVoucherDialog();
+  }
+
+  void _showEditVoucherDialog(Voucher voucher) {
+    _showVoucherDialog(voucher: voucher);
+  }
+
+  void _showVoucherDialog({Voucher? voucher}) async {
+    final isEditing = voucher != null;
+    final titleController = TextEditingController(text: voucher?.title ?? '');
+    final descriptionController = TextEditingController(
+      text: voucher?.description ?? '',
+    );
+    final discountController = TextEditingController(
+      text: voucher?.discount.toString() ?? '10',
+    );
+    final coinsRequiredController = TextEditingController(
+      text: voucher?.coinsRequired.toString() ?? '100',
+    );
+    final validDaysController = TextEditingController(
+      text: voucher?.validDays.toString() ?? '30',
+    );
+    String selectedCategory = voucher?.category ?? 'General';
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(isEditing ? 'Edit Voucher' : 'Add New Voucher'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Voucher Title',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: discountController,
+                      decoration: const InputDecoration(
+                        labelText: 'Discount (%)',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: coinsRequiredController,
+                      decoration: const InputDecoration(
+                        labelText: 'Coins Required',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: validDaysController,
+                      decoration: const InputDecoration(
+                        labelText: 'Valid Days',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedCategory,
+                      decoration: const InputDecoration(
+                        labelText: 'Category',
+                        border: OutlineInputBorder(),
+                      ),
+                      items:
+                          [
+                                'General',
+                                'Electronics',
+                                'Food & Drink',
+                                'Clothing',
+                                'Stationery',
+                                'Books',
+                                'Recreation',
+                                'Free Shipping',
+                              ]
+                              .map(
+                                (category) => DropdownMenuItem(
+                                  value: category,
+                                  child: Text(category),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          selectedCategory = value!;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (titleController.text.isNotEmpty &&
+                        descriptionController.text.isNotEmpty &&
+                        discountController.text.isNotEmpty &&
+                        coinsRequiredController.text.isNotEmpty) {
+                      Navigator.pop(context, true);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF0066CC),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(isEditing ? 'Update' : 'Add'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true) {
+      final newVoucher = Voucher(
+        id: voucher?.id ?? 0,
+        title: titleController.text,
+        description: descriptionController.text,
+        category: selectedCategory,
+        discount: int.tryParse(discountController.text) ?? 10,
+        coinsRequired: int.tryParse(coinsRequiredController.text) ?? 100,
+        validDays: int.tryParse(validDaysController.text) ?? 30,
+        active: voucher?.active ?? true,
+        createdAt: voucher?.createdAt ?? DateTime.now(),
+      );
+
+      bool success;
+      if (isEditing) {
+        success = await VoucherService.updateVoucher(voucher.id, newVoucher);
+      } else {
+        success = await VoucherService.addVoucher(newVoucher);
+      }
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isEditing
+                    ? 'Voucher updated successfully'
+                    : 'Voucher added successfully',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+          setState(() {});
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to save voucher'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   void _showAddProductDialog() {
     _showProductDialog();
   }
@@ -781,9 +1344,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void _showProductDialog({Product? product, int? index}) {
     final isEditing = product != null;
     final nameController = TextEditingController(text: product?.name ?? '');
-    final descriptionController = TextEditingController(text: product?.description ?? '');
-    final priceController = TextEditingController(text: product?.price.toString() ?? '');
-    final discountController = TextEditingController(text: product?.discount.toString() ?? '0');
+    final descriptionController = TextEditingController(
+      text: product?.description ?? '',
+    );
+    final priceController = TextEditingController(
+      text: product?.price.toString() ?? '',
+    );
+    final discountController = TextEditingController(
+      text: product?.discount.toString() ?? '0',
+    );
     String selectedCategory = product?.category ?? 'Clothing';
 
     showDialog(
@@ -840,10 +1409,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                       items: ProductService.getCategories()
                           .where((category) => category != 'All')
-                          .map((category) => DropdownMenuItem(
-                                value: category,
-                                child: Text(category),
-                              ))
+                          .map(
+                            (category) => DropdownMenuItem(
+                              value: category,
+                              child: Text(category),
+                            ),
+                          )
                           .toList(),
                       onChanged: (value) {
                         setDialogState(() {
@@ -865,11 +1436,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         descriptionController.text.isNotEmpty &&
                         priceController.text.isNotEmpty) {
                       final newProduct = Product(
-                        id: product?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+                        id:
+                            product?.id ??
+                            DateTime.now().millisecondsSinceEpoch.toString(),
                         name: nameController.text,
                         description: descriptionController.text,
                         price: double.tryParse(priceController.text) ?? 0.0,
-                        imageUrl: product?.imageUrl ?? 'https://via.placeholder.com/200x200?text=${nameController.text}',
+                        imageUrl:
+                            product?.imageUrl ??
+                            'https://via.placeholder.com/200x200?text=${nameController.text}',
                         category: selectedCategory,
                         discount: int.tryParse(discountController.text) ?? 0,
                       );

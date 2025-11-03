@@ -15,53 +15,89 @@ class CartPage extends StatefulWidget {
 class _CartPageState extends State<CartPage> {
   @override
   Widget build(BuildContext context) {
-    final cartItems = CartService.getCartItems(widget.username);
-    final totalPrice = CartService.getTotalPrice(widget.username);
+    return FutureBuilder<List<CartItem>>(
+      future: CartService.getCartItems(widget.username),
+      builder: (context, cartSnapshot) {
+        if (cartSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    if (cartItems.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.shopping_cart_outlined,
-              size: 100,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Your cart is empty',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text('Add some products to get started'),
-          ],
-        ),
-      );
-    }
+        if (cartSnapshot.hasError) {
+          return Center(child: Text('Error: ${cartSnapshot.error}'));
+        }
 
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: cartItems.length,
-            itemBuilder: (context, index) {
-              final cartItem = cartItems[index];
-              return _buildCartItem(cartItem);
-            },
-          ),
-        ),
-        _buildCheckoutSection(totalPrice),
-      ],
+        final cartItems = cartSnapshot.data ?? [];
+
+        return FutureBuilder<double>(
+          future: CartService.getTotalPrice(widget.username),
+          builder: (context, priceSnapshot) {
+            if (priceSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final totalPrice = priceSnapshot.data ?? 0.0;
+
+            if (cartItems.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.shopping_cart_outlined,
+                      size: 100,
+                      color: Colors.grey[300],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Your cart is empty',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Add some products to get started',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: cartItems.length,
+                    itemBuilder: (context, index) {
+                      final cartItem = cartItems[index];
+                      return _buildCartItem(cartItem);
+                    },
+                  ),
+                ),
+                _buildCheckoutSection(totalPrice),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
   Widget _buildCartItem(CartItem cartItem) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -71,13 +107,13 @@ class _CartPageState extends State<CartPage> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: Colors.grey[200],
+                color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.image, color: Colors.grey),
             ),
             const SizedBox(width: 12),
-            
+
             // Product Details
             Expanded(
               child: Column(
@@ -85,38 +121,34 @@ class _CartPageState extends State<CartPage> {
                 children: [
                   Text(
                     cartItem.product.name,
-                    style: Theme.of(context).textTheme.titleMedium,
-                    maxLines: 2,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     cartItem.product.description,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                    maxLines: 1,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      if (cartItem.product.discount > 0) ...[
-                        Text(
-                          '\$${cartItem.product.price.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            decoration: TextDecoration.lineThrough,
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                      ],
                       Text(
                         '\$${cartItem.product.discountedPrice.toStringAsFixed(2)}',
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: cartItem.product.discount > 0 ? Colors.red : Colors.black,
+                          color: Color(0xFF0066CC),
+                        ),
+                      ),
+                      Text(
+                        'Qty: ${cartItem.quantity}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
                         ),
                       ),
                     ],
@@ -124,75 +156,92 @@ class _CartPageState extends State<CartPage> {
                 ],
               ),
             ),
-            
+
             // Quantity Controls
             Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      onPressed: () {
-                        setState(() {
-                          if (cartItem.quantity > 1) {
-                            CartService.updateQuantity(
-                              widget.username,
-                              cartItem.product.id,
-                              cartItem.quantity - 1,
-                            );
-                          } else {
-                            CartService.removeFromCart(
-                              widget.username,
-                              cartItem.product.id,
-                            );
-                          }
-                        });
-                      },
-                      icon: const Icon(Icons.remove),
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      padding: EdgeInsets.zero,
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: Material(
+                        color: Colors.grey[100],
                         borderRadius: BorderRadius.circular(4),
+                        child: InkWell(
+                          onTap: () async {
+                            if (cartItem.quantity > 1) {
+                              await CartService.updateQuantity(
+                                widget.username,
+                                cartItem.product.id,
+                                cartItem.quantity - 1,
+                              );
+                            } else {
+                              await CartService.removeFromCart(
+                                widget.username,
+                                cartItem.product.id,
+                              );
+                            }
+                            if (mounted) setState(() {});
+                          },
+                          child: const Icon(
+                            Icons.remove,
+                            size: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
                       ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Text(
                         '${cartItem.quantity}',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
-                    IconButton(
-                      onPressed: () {
-                        setState(() {
-                          CartService.updateQuantity(
-                            widget.username,
-                            cartItem.product.id,
-                            cartItem.quantity + 1,
-                          );
-                        });
-                      },
-                      icon: const Icon(Icons.add),
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      padding: EdgeInsets.zero,
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: Material(
+                        color: Color(0xFF0066CC).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        child: InkWell(
+                          onTap: () async {
+                            await CartService.updateQuantity(
+                              widget.username,
+                              cartItem.product.id,
+                              cartItem.quantity + 1,
+                            );
+                            if (mounted) setState(() {});
+                          },
+                          child: const Icon(
+                            Icons.add,
+                            size: 14,
+                            color: Color(0xFF0066CC),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Total: \$${cartItem.totalPrice.toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+                SizedBox(
+                  width: 70,
+                  child: TextButton(
+                    onPressed: () async {
+                      await CartService.removeFromCart(
+                        widget.username,
+                        cartItem.product.id,
+                      );
+                      if (mounted) setState(() {});
+                    },
+                    child: const Text(
+                      'Remove',
+                      style: TextStyle(color: Colors.red, fontSize: 11),
+                    ),
                   ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      CartService.removeFromCart(widget.username, cartItem.product.id);
-                    });
-                  },
-                  child: const Text('Remove', style: TextStyle(color: Colors.red)),
                 ),
               ],
             ),
@@ -207,14 +256,7 @@ class _CartPageState extends State<CartPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: const Offset(0, -2),
-          ),
-        ],
+        border: Border(top: BorderSide(color: Colors.grey[200]!)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -224,33 +266,38 @@ class _CartPageState extends State<CartPage> {
             children: [
               Text(
                 'Total Amount:',
-                style: Theme.of(context).textTheme.titleLarge,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               Text(
                 '\$${totalPrice.toStringAsFixed(2)}',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple,
+                  color: Color(0xFF0066CC),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => _proceedToCheckout(totalPrice),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          SizedBox(
+            height: 56,
+            child: ElevatedButton(
+              onPressed: () => _proceedToCheckout(totalPrice),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF0066CC),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
               ),
-            ),
-            child: Text(
-              'Proceed to Checkout',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+              child: Text(
+                'Proceed to Checkout',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -271,7 +318,9 @@ class _CartPageState extends State<CartPage> {
             children: [
               Text('Total Amount: \$${totalPrice.toStringAsFixed(2)}'),
               const SizedBox(height: 8),
-              const Text('This is a demo checkout. In a real app, you would integrate with a payment gateway.'),
+              const Text(
+                'This is a demo checkout. In a real app, you would integrate with a payment gateway.',
+              ),
             ],
           ),
           actions: [
@@ -280,19 +329,28 @@ class _CartPageState extends State<CartPage> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 // Simulate successful purchase
-                CartService.clearCart(widget.username);
-                UserCoinsService.addCoins(widget.username, (totalPrice * 0.1).round()); // 10% cashback in coins
+                await CartService.clearCart(widget.username);
+                await UserCoinsService.addCoins(
+                  widget.username,
+                  (totalPrice * 0.1).round(),
+                ); // 10% cashback in coins
+                if (!mounted) return;
                 Navigator.pop(context);
                 setState(() {});
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Purchase successful! You earned ${(totalPrice * 0.1).round()} coins!'),
+                    content: Text(
+                      'Purchase successful! You earned ${(totalPrice * 0.1).round()} coins!',
+                    ),
                     backgroundColor: Colors.green,
                   ),
                 );
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF0066CC),
+              ),
               child: const Text('Complete Purchase'),
             ),
           ],

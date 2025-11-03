@@ -45,9 +45,9 @@ class _LoginPageState extends State<LoginPage> {
             MaterialPageRoute(builder: (context) => const AdminDashboard()),
           );
         }
-      } 
+      }
       // Check regular user credentials
-      else if (UserService.authenticateUser(username, password)) {
+      else if (await UserService.authenticateUser(username, password)) {
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -56,8 +56,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           );
         }
-      } 
-      else {
+      } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -77,197 +76,243 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.deepPurple.shade300,
-              Colors.deepPurple.shade700,
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // UniPerks Logo/Icon
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.deepPurple.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.school,
-                            size: 48,
-                            color: Colors.deepPurple,
-                          ),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 16.0,
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 40),
+
+                  // Logo
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF0066CC),
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/logo/UniPerks.png',
+                        width: 104,
+                        height: 104,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Title
+                  Text(
+                    'UniPerks',
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Welcome back!',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 40),
+
+                  // Username Field
+                  TextFormField(
+                    controller: _usernameController,
+                    decoration: InputDecoration(
+                      labelText: 'Username',
+                      hintText: 'Enter your username',
+                      prefixIcon: const Icon(
+                        Icons.person,
+                        color: Color(0xFF0066CC),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.grey),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF0066CC),
+                          width: 2,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'UniPerks',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: Colors.deepPurple,
-                            fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your username';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Password Field
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      hintText: 'Enter your password',
+                      prefixIcon: const Icon(
+                        Icons.lock,
+                        color: Color(0xFF0066CC),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Color(0xFF0066CC),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.grey),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF0066CC),
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your password';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 28),
+
+                  // Login Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0066CC),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                              'Login',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Register Link
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RegisterPage(),
+                              ),
+                            );
+                          },
+                    child: RichText(
+                      text: const TextSpan(
+                        text: "Don't have an account? ",
+                        style: TextStyle(color: Colors.grey),
+                        children: [
+                          TextSpan(
+                            text: 'Register',
+                            style: TextStyle(
+                              color: Color(0xFF0066CC),
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Demo Credentials
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.blue.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.blue[700],
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Demo Accounts',
+                              style: TextStyle(
+                                color: Colors.blue[900],
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Welcome back!',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        
-                        // Username Field
-                        TextFormField(
-                          controller: _usernameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Username',
-                            prefixIcon: Icon(Icons.person),
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your username';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Password Field
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: const Icon(Icons.lock),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                            ),
-                            border: const OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        
-                        // Login Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _login,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.deepPurple,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const CircularProgressIndicator(color: Colors.white)
-                                : const Text(
-                                    'Login',
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Register Link
-                        TextButton(
-                          onPressed: _isLoading ? null : () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const RegisterPage()),
-                            );
-                          },
-                          child: RichText(
-                            text: const TextSpan(
-                              text: "Don't have an account? ",
-                              style: TextStyle(color: Colors.grey),
-                              children: [
-                                TextSpan(
-                                  text: 'Register',
-                                  style: TextStyle(
-                                    color: Colors.deepPurple,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        
-                        // Demo Credentials
-                        const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Demo Accounts',
-                                    style: TextStyle(
-                                      color: Colors.blue,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Admin: admin / admin123\nOr register as a new user',
-                                style: TextStyle(
-                                  color: Colors.blue[800],
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
+                          'Admin: admin / admin123\nOr register as a new user',
+                          style: TextStyle(
+                            color: Colors.blue[800],
+                            fontSize: 12,
+                            height: 1.5,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
+                  const SizedBox(height: 40),
+                ],
               ),
             ),
           ),

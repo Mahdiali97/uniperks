@@ -1,59 +1,177 @@
-class UserService {
-  static List<Map<String, String>> registeredUsers = [];
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-  static bool registerUser(String username, String email, String password) {
-    // Check if username or email already exists
-    bool userExists = registeredUsers.any((user) => 
-        user['username'] == username || user['email'] == email);
-    
-    if (!userExists) {
-      registeredUsers.add({
+class UserService {
+  static final _supabase = Supabase.instance.client;
+  static const String _tableName = 'users';
+
+  // Register user
+  static Future<bool> registerUser(
+    String username,
+    String email,
+    String password,
+  ) async {
+    try {
+      // Check if username or email already exists
+      final existingUser = await _supabase
+          .from(_tableName)
+          .select()
+          .or('username.eq.$username,email.eq.$email')
+          .maybeSingle();
+
+      if (existingUser != null) {
+        return false;
+      }
+
+      // Insert user into database
+      final response = await _supabase.from(_tableName).insert({
         'username': username,
         'email': email,
         'password': password,
-      });
-      return true;
-    }
-    return false;
-  }
+      }).select();
 
-  static bool authenticateUser(String username, String password) {
-    return registeredUsers.any((user) => 
-        user['username'] == username && user['password'] == password);
-  }
+      if (response.isNotEmpty) {
+        final userId = response[0]['id'] as int;
 
-  static bool userExists(String username) {
-    return registeredUsers.any((user) => user['username'] == username);
-  }
+        // Initialize user coins and cart with the new user's ID
+        await _initializeUserCoins(userId, username);
+        await _initializeUserCart(userId, username);
 
-  static bool emailExists(String email) {
-    return registeredUsers.any((user) => user['email'] == email);
-  }
+        return true;
+      }
 
-  static List<Map<String, String>> getAllUsers() {
-    return registeredUsers;
-  }
-
-  static void removeUser(int index) {
-    if (index >= 0 && index < registeredUsers.length) {
-      registeredUsers.removeAt(index);
-    }
-  }
-
-  static Map<String, String>? getUser(String username) {
-    try {
-      return registeredUsers.firstWhere((user) => user['username'] == username);
+      return false;
     } catch (e) {
+      print('Register User Error: $e');
+      return false;
+    }
+  }
+
+  // Initialize coins for new user (internal helper)
+  static Future<void> _initializeUserCoins(int userId, String username) async {
+    try {
+      await _supabase.from('user_coins').insert({
+        'user_id': userId,
+        'username': username,
+        'coins': 0,
+      });
+    } catch (e) {
+      print('Initialize User Coins Error: $e');
+    }
+  }
+
+  // Initialize cart for new user (internal helper)
+  static Future<void> _initializeUserCart(int userId, String username) async {
+    try {
+      await _supabase.from('user_carts').insert({
+        'user_id': userId,
+        'username': username,
+        'items': [],
+      });
+    } catch (e) {
+      print('Initialize User Cart Error: $e');
+    }
+  }
+
+  // Authenticate user
+  static Future<bool> authenticateUser(String username, String password) async {
+    try {
+      final user = await _supabase
+          .from(_tableName)
+          .select()
+          .eq('username', username)
+          .eq('password', password)
+          .maybeSingle();
+
+      return user != null;
+    } catch (e) {
+      print('Authenticate User Error: $e');
+      return false;
+    }
+  }
+
+  // Check if username exists
+  static Future<bool> userExists(String username) async {
+    try {
+      final user = await _supabase
+          .from(_tableName)
+          .select()
+          .eq('username', username)
+          .maybeSingle();
+
+      return user != null;
+    } catch (e) {
+      print('User Exists Error: $e');
+      return false;
+    }
+  }
+
+  // Check if email exists
+  static Future<bool> emailExists(String email) async {
+    try {
+      final user = await _supabase
+          .from(_tableName)
+          .select()
+          .eq('email', email)
+          .maybeSingle();
+
+      return user != null;
+    } catch (e) {
+      print('Email Exists Error: $e');
+      return false;
+    }
+  }
+
+  // Get all users
+  static Future<List<Map<String, dynamic>>> getAllUsers() async {
+    try {
+      final users = await _supabase.from(_tableName).select();
+      return List<Map<String, dynamic>>.from(users);
+    } catch (e) {
+      print('Get All Users Error: $e');
+      return [];
+    }
+  }
+
+  // Get user by username
+  static Future<Map<String, dynamic>?> getUser(String username) async {
+    try {
+      final user = await _supabase
+          .from(_tableName)
+          .select()
+          .eq('username', username)
+          .maybeSingle();
+
+      return user;
+    } catch (e) {
+      print('Get User Error: $e');
       return null;
     }
   }
 
-  // For testing purposes, add some default users
-  static void initializeDefaultUsers() {
-    if (registeredUsers.isEmpty) {
-      registerUser('admin', 'admin@uniperks.com', 'admin123');
-      registerUser('student1', 'student1@university.edu', 'password123');
-      registerUser('testuser', 'test@example.com', 'test123');
+  // Remove user
+  static Future<void> removeUser(String username) async {
+    try {
+      await _supabase.from(_tableName).delete().eq('username', username);
+    } catch (e) {
+      print('Remove User Error: $e');
+    }
+  }
+
+  // Initialize default users (for testing)
+  static Future<void> initializeDefaultUsers() async {
+    try {
+      final existingUsers = await getAllUsers();
+      if (existingUsers.isEmpty) {
+        await registerUser('admin', 'admin@uniperks.com', 'admin123');
+        await registerUser(
+          'student1',
+          'student1@university.edu',
+          'password123',
+        );
+        await registerUser('testuser', 'test@example.com', 'test123');
+      }
+    } catch (e) {
+      print('Initialize Default Users Error: $e');
     }
   }
 }
