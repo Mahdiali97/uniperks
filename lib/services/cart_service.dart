@@ -22,10 +22,10 @@ class CartService {
 
         for (var item in items) {
           final itemMap = item as Map<String, dynamic>;
-          final productId = itemMap['product_id'] as String;
+          final productId = itemMap['product_id'] as int;
           final quantity = itemMap['quantity'] as int? ?? 1;
 
-          final product = ProductService.getProduct(productId);
+          final product = await ProductService.getProduct(productId);
           if (product != null) {
             cartItems.add(CartItem(product: product, quantity: quantity));
           }
@@ -110,7 +110,7 @@ class CartService {
   }
 
   // Remove product from cart
-  static Future<void> removeFromCart(String username, String productId) async {
+  static Future<void> removeFromCart(String username, int productId) async {
     try {
       final cartData = await _supabase
           .from(_tableName)
@@ -139,7 +139,7 @@ class CartService {
   // Update product quantity in cart
   static Future<void> updateQuantity(
     String username,
-    String productId,
+    int productId,
     int quantity,
   ) async {
     try {

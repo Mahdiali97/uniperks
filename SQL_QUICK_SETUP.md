@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS quiz_questions CASCADE;
 DROP TABLE IF EXISTS quiz_modules CASCADE;
 DROP TABLE IF EXISTS redeemed_vouchers CASCADE;
 DROP TABLE IF EXISTS vouchers CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
 DROP TABLE IF EXISTS daily_quiz_attempts CASCADE;
 DROP TABLE IF EXISTS user_carts CASCADE;
 DROP TABLE IF EXISTS user_coins CASCADE;
@@ -93,6 +94,20 @@ CREATE TABLE quiz_questions (
   answers jsonb not null,
   correct_answer integer not null,
   difficulty integer not null,
+  created_at timestamp default now()
+);
+
+-- NEW: Products table (admin manages products)
+CREATE TABLE products (
+  id bigint primary key generated always as identity,
+  name text not null,
+  description text not null,
+  price numeric(10,2) not null,
+  image_url text,
+  category text not null,
+  discount integer default 0,
+  rating numeric(2,1) default 0,
+  reviews jsonb default '[]'::jsonb,
   created_at timestamp default now()
 );
 ```

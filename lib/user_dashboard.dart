@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:uniperks/auth/login_page.dart';
 import 'package:uniperks/pages/product_catalog_page.dart';
@@ -20,9 +21,10 @@ class UserDashboard extends StatefulWidget {
 
 class _UserDashboardState extends State<UserDashboard> {
   int _selectedIndex = 0;
-  String _selectedCategory = 'All';
   late Future<int> _coinsFuture;
   late Future<int> _cartFuture;
+  // Reload counters to force remount of each tab when refreshed
+  final List<int> _reloadCounters = [0, 0, 0, 0, 0];
 
   @override
   void initState() {
@@ -37,6 +39,15 @@ class _UserDashboardState extends State<UserDashboard> {
     });
   }
 
+  // Refresh only the currently visible page and update header counters
+  void _reloadCurrentPage() {
+    setState(() {
+      _reloadCounters[_selectedIndex]++;
+      _coinsFuture = UserCoinsService.getCoins(widget.username);
+      _cartFuture = CartService.getTotalItems(widget.username);
+    });
+  }
+
   void _logout(BuildContext context) {
     Navigator.pushReplacement(
       context,
@@ -44,255 +55,204 @@ class _UserDashboardState extends State<UserDashboard> {
     );
   }
 
-  List<Product> _getFilteredProducts() {
-    if (_selectedCategory == 'All') {
-      return ProductService.getAllProducts();
-    }
-    return ProductService.getAllProducts()
-        .where((product) => product.category == _selectedCategory)
-        .toList();
+  Future<List<Product>> _getFilteredProducts() async {
+    final allProducts = await ProductService.getAllProducts();
+    return allProducts;
   }
 
   Widget _buildHomePage() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Hero Banner Section
-          Stack(
-            children: [
-              Container(
-                width: double.infinity,
-                height: 280,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey[800]!, Colors.grey[700]!],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return FutureBuilder<List<Product>>(
+      future: _getFilteredProducts(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final filteredProducts = snapshot.data ?? [];
+
+        return RefreshIndicator(
+          onRefresh: _onRefreshHome,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Hero Banner Section
+                Stack(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    Container(
+                      width: double.infinity,
+                      height: 280,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color.fromARGB(255, 22, 56, 71),
+                            const Color.fromARGB(255, 5, 55, 98),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '50% off',
-                            style: Theme.of(context).textTheme.displaySmall
-                                ?.copyWith(
-                                  color: Color(0xFF0066CC),
-                                  fontWeight: FontWeight.bold,
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20.0,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'A Place to Shop UPSI Merchandise',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .displaySmall
+                                      ?.copyWith(
+                                        color: const Color(0xFF0066CC),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                 ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'GRAB\nYOURS NOW',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                              height: 1.2,
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'GRAB\nYOURS NOW',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 48,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              Positioned(
-                right: -20,
-                bottom: -20,
-                child: Container(
-                  width: 180,
-                  height: 180,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.1),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // Categories Section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Categories',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 40,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: ProductService.getCategories().length,
-                    itemBuilder: (context, index) {
-                      final category = ProductService.getCategories()[index];
-                      final isSelected = _selectedCategory == category;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: FilterChip(
-                          label: Text(category),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedCategory = category;
-                            });
-                          },
-                          selectedColor: Color(0xFF0066CC),
-                          backgroundColor: Colors.grey[100],
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : Colors.black87,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          side: BorderSide.none,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
+                    Positioned(
+                      right: -20,
+                      bottom: -20,
+                      child: Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.1),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Popular Products
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              'Popular products',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 260,
-            child: _getFilteredProducts().isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.shopping_bag_outlined,
-                          size: 64,
-                          color: Colors.grey[300],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No products in this category',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    itemCount: _getFilteredProducts().length,
-                    itemBuilder: (context, index) {
-                      final product = _getFilteredProducts()[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 12.0),
-                        child: _buildProductCard(product),
-                      );
-                    },
-                  ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Stats Section - Now using FutureBuilder
-          _buildStatsSection(),
-
-          const SizedBox(height: 24),
-
-          // Flash Sale Section
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 16.0),
-            padding: const EdgeInsets.all(20.0),
-            decoration: BoxDecoration(
-              color: Color(0xFF0066CC).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Color(0xFF0066CC).withOpacity(0.3)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.flash_on,
-                      color: Color(0xFF0066CC),
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Super Flash Sale',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Get exclusive deals today only!',
-                  style: TextStyle(color: Colors.grey),
+
+                const SizedBox(height: 24),
+
+                // Popular Products
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    'Products',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 SizedBox(
+                  height: 500,
+                  child: _ProductSlideshow(
+                    products: filteredProducts,
+                    itemBuilder: _buildProductCard,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Stats Section - Now using FutureBuilder
+                _buildStatsSection(),
+
+                const SizedBox(height: 24),
+
+                // Flash Sale Section
+                Container(
                   width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () => setState(() => _selectedIndex = 1),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF0066CC),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Shop Now',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  margin: const EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: const EdgeInsets.all(20.0),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF0066CC).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Color(0xFF0066CC).withOpacity(0.3),
                     ),
                   ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.flash_on,
+                            color: Color(0xFF0066CC),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Super Flash Sale',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Get exclusive deals today only!',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: () => setState(() => _selectedIndex = 1),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0066CC),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Shop Now',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+
+                const SizedBox(height: 32),
               ],
             ),
           ),
-
-          const SizedBox(height: 32),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  Future<void> _onRefreshHome() async {
+    // Re-fetch header counts and trigger a rebuild so FutureBuilder reloads products
+    _refreshCoinsAndCart();
+    await ProductService.getAllProducts();
+    if (mounted) setState(() {});
   }
 
   Widget _buildStatsSection() {
@@ -338,7 +298,7 @@ class _UserDashboardState extends State<UserDashboard> {
 
   Widget _buildProductCard(Product product) {
     return Container(
-      width: 160,
+      width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -411,26 +371,28 @@ class _UserDashboardState extends State<UserDashboard> {
                       Text(
                         product.name,
                         style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 6),
                       Text(
                         '\$${product.discountedPrice.toStringAsFixed(2)}',
                         style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
                           color: Color(0xFF0066CC),
+                          letterSpacing: 0.2,
                         ),
                       ),
                       if (product.discount > 0)
                         Text(
                           '\$${product.price.toStringAsFixed(2)}',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             decoration: TextDecoration.lineThrough,
                             color: Colors.grey[500],
                           ),
@@ -488,11 +450,26 @@ class _UserDashboardState extends State<UserDashboard> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = [
-      _buildHomePage(), // Index 0 - Home
-      ProductCatalogPage(username: widget.username), // Index 1 - Shop
-      CartPage(username: widget.username), // Index 2 - Cart
-      QuizPage(username: widget.username), // Index 3 - Quiz
-      VoucherPage(username: widget.username), // Index 4 - Vouchers
+      KeyedSubtree(
+        key: ValueKey('home-${_reloadCounters[0]}'),
+        child: _buildHomePage(),
+      ), // Index 0 - Home
+      ProductCatalogPage(
+        key: ValueKey('catalog-${_reloadCounters[1]}'),
+        username: widget.username,
+      ), // Index 1 - Shop
+      CartPage(
+        key: ValueKey('cart-${_reloadCounters[2]}'),
+        username: widget.username,
+      ), // Index 2 - Cart
+      QuizPage(
+        key: ValueKey('quiz-${_reloadCounters[3]}'),
+        username: widget.username,
+      ), // Index 3 - Quiz
+      VoucherPage(
+        key: ValueKey('voucher-${_reloadCounters[4]}'),
+        username: widget.username,
+      ), // Index 4 - Vouchers
     ];
 
     return Scaffold(
@@ -529,6 +506,11 @@ class _UserDashboardState extends State<UserDashboard> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: 'Refresh',
+            onPressed: _reloadCurrentPage,
+          ),
           // Coins display with FutureBuilder
           FutureBuilder<int>(
             future: _coinsFuture,
@@ -649,6 +631,140 @@ class _UserDashboardState extends State<UserDashboard> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// A modern auto-sliding product slideshow with fade/scale animations
+class _ProductSlideshow extends StatefulWidget {
+  final List<Product> products;
+  final Widget Function(Product) itemBuilder;
+
+  const _ProductSlideshow({required this.products, required this.itemBuilder});
+
+  @override
+  State<_ProductSlideshow> createState() => _ProductSlideshowState();
+}
+
+class _ProductSlideshowState extends State<_ProductSlideshow> {
+  late final PageController _controller;
+  Timer? _timer;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(viewportFraction: 0.92);
+    _startAutoPlay();
+  }
+
+  void _startAutoPlay() {
+    _timer?.cancel();
+    if (widget.products.length <= 1) return; // no autoplay for single item
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || !_controller.hasClients) return;
+      final next = (_currentPage + 1) % widget.products.length;
+      _controller.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+      setState(() => _currentPage = next);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProductSlideshow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.products.length != widget.products.length) {
+      _currentPage = 0;
+      _startAutoPlay();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.products.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.shopping_bag_outlined,
+              size: 64,
+              color: Colors.grey[300],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No products available',
+              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: PageView.builder(
+            controller: _controller,
+            onPageChanged: (i) => setState(() => _currentPage = i),
+            itemCount: widget.products.length,
+            itemBuilder: (context, index) {
+              final product = widget.products[index];
+              return AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  double t = 1.0;
+                  if (_controller.hasClients &&
+                      _controller.position.haveDimensions) {
+                    final page =
+                        _controller.page ?? _controller.initialPage.toDouble();
+                    t = (1 - ((page - index).abs() * 0.35)).clamp(0.7, 1.0);
+                  }
+                  return Center(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOut,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Opacity(
+                        opacity: t,
+                        child: Transform.scale(scale: t, child: child),
+                      ),
+                    ),
+                  );
+                },
+                child: widget.itemBuilder(product),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(widget.products.length, (i) {
+            final selected = i == _currentPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              height: 8,
+              width: selected ? 24 : 8,
+              decoration: BoxDecoration(
+                color: selected ? const Color(0xFF0066CC) : Colors.grey[300],
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 }

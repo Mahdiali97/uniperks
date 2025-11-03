@@ -3,6 +3,7 @@ import 'package:uniperks/auth/register_page.dart';
 import 'package:uniperks/services/user_service.dart';
 import 'package:uniperks/admin_dashboard.dart';
 import 'package:uniperks/user_dashboard.dart';
+import 'package:uniperks/auth/admin_login_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -268,6 +269,31 @@ class _LoginPageState extends State<LoginPage> {
 
                   // Demo Credentials
                   const SizedBox(height: 24),
+                  // Admin (Supabase) Login shortcut
+                  TextButton.icon(
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AdminLoginPage(),
+                              ),
+                            );
+                          },
+                    icon: const Icon(
+                      Icons.admin_panel_settings,
+                      color: Color(0xFF0066CC),
+                    ),
+                    label: const Text(
+                      'Admin Login (Supabase)',
+                      style: TextStyle(
+                        color: Color(0xFF0066CC),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(

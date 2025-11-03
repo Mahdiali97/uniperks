@@ -38,30 +38,38 @@ class _CartPageState extends State<CartPage> {
             final totalPrice = priceSnapshot.data ?? 0.0;
 
             if (cartItems.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              return RefreshIndicator(
+                onRefresh: () async => setState(() {}),
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   children: [
-                    Icon(
-                      Icons.shopping_cart_outlined,
-                      size: 100,
-                      color: Colors.grey[300],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Your cart is empty',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.bold,
+                    const SizedBox(height: 120),
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.shopping_cart_outlined,
+                            size: 100,
+                            color: Colors.grey[300],
                           ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Add some products to get started',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Your cart is empty',
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Add some products to get started',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -71,13 +79,16 @@ class _CartPageState extends State<CartPage> {
             return Column(
               children: [
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: cartItems.length,
-                    itemBuilder: (context, index) {
-                      final cartItem = cartItems[index];
-                      return _buildCartItem(cartItem);
-                    },
+                  child: RefreshIndicator(
+                    onRefresh: () async => setState(() {}),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: cartItems.length,
+                      itemBuilder: (context, index) {
+                        final cartItem = cartItems[index];
+                        return _buildCartItem(cartItem);
+                      },
+                    ),
                   ),
                 ),
                 _buildCheckoutSection(totalPrice),
@@ -172,16 +183,18 @@ class _CartPageState extends State<CartPage> {
                         borderRadius: BorderRadius.circular(4),
                         child: InkWell(
                           onTap: () async {
+                            if (cartItem.product.id == null) return;
+
                             if (cartItem.quantity > 1) {
                               await CartService.updateQuantity(
                                 widget.username,
-                                cartItem.product.id,
+                                cartItem.product.id!,
                                 cartItem.quantity - 1,
                               );
                             } else {
                               await CartService.removeFromCart(
                                 widget.username,
-                                cartItem.product.id,
+                                cartItem.product.id!,
                               );
                             }
                             if (mounted) setState(() {});
@@ -209,9 +222,11 @@ class _CartPageState extends State<CartPage> {
                         borderRadius: BorderRadius.circular(4),
                         child: InkWell(
                           onTap: () async {
+                            if (cartItem.product.id == null) return;
+
                             await CartService.updateQuantity(
                               widget.username,
-                              cartItem.product.id,
+                              cartItem.product.id!,
                               cartItem.quantity + 1,
                             );
                             if (mounted) setState(() {});
@@ -231,9 +246,11 @@ class _CartPageState extends State<CartPage> {
                   width: 70,
                   child: TextButton(
                     onPressed: () async {
+                      if (cartItem.product.id == null) return;
+
                       await CartService.removeFromCart(
                         widget.username,
-                        cartItem.product.id,
+                        cartItem.product.id!,
                       );
                       if (mounted) setState(() {});
                     },

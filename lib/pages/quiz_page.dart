@@ -74,123 +74,128 @@ class _QuizPageState extends State<QuizPage> {
 
               final modules = modulesSnapshot.data ?? [];
 
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    Text(
-                      'Test your knowledge',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Complete quizzes to earn coins',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Daily Progress Card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16.0),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF4A90E2), Color(0xFF0066CC)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
+              return RefreshIndicator(
+                onRefresh: () async => setState(() {}),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Text(
+                        'Test your knowledge',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.calendar_today,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Today\'s Progress',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                              ),
-                            ],
+                      const SizedBox(height: 4),
+                      Text(
+                        'Complete quizzes to earn coins',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Daily Progress Card
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16.0),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF4A90E2), Color(0xFF0066CC)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                          const SizedBox(height: 12),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: LinearProgressIndicator(
-                              value: modules.isNotEmpty
-                                  ? todayCompletedCount / modules.length
-                                  : 0,
-                              minHeight: 8,
-                              backgroundColor: Colors.white.withOpacity(0.3),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Today\'s Progress',
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: LinearProgressIndicator(
+                                value: modules.isNotEmpty
+                                    ? todayCompletedCount / modules.length
+                                    : 0,
+                                minHeight: 8,
+                                backgroundColor: Colors.white.withOpacity(0.3),
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '$todayCompletedCount of ${modules.length} completed',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Available Modules
-                    Text(
-                      'Available Modules',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Modules List
-                    ...modules.map((module) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12.0),
-                        child: FutureBuilder<bool>(
-                          future: DailyQuizService.canTakeQuizToday(
-                            widget.username,
-                            module.id,
-                          ),
-                          builder: (context, canTakeSnapshot) {
-                            final canTake = canTakeSnapshot.data ?? false;
-                            return FutureBuilder<String>(
-                              future: DailyQuizService.getTimeUntilReset(
-                                widget.username,
-                                module.id,
+                            const SizedBox(height: 8),
+                            Text(
+                              '$todayCompletedCount of ${modules.length} completed',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
                               ),
-                              builder: (context, timeSnapshot) {
-                                final timeUntilReset = timeSnapshot.data ?? '';
-                                return _buildModuleCard(
-                                  module,
-                                  canTake,
-                                  timeUntilReset,
-                                );
-                              },
-                            );
-                          },
+                            ),
+                          ],
                         ),
-                      );
-                    }),
-                  ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Available Modules
+                      Text(
+                        'Available Modules',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Modules List
+                      ...modules.map((module) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: FutureBuilder<bool>(
+                            future: DailyQuizService.canTakeQuizToday(
+                              widget.username,
+                              module.id,
+                            ),
+                            builder: (context, canTakeSnapshot) {
+                              final canTake = canTakeSnapshot.data ?? false;
+                              return FutureBuilder<String>(
+                                future: DailyQuizService.getTimeUntilReset(
+                                  widget.username,
+                                  module.id,
+                                ),
+                                builder: (context, timeSnapshot) {
+                                  final timeUntilReset =
+                                      timeSnapshot.data ?? '';
+                                  return _buildModuleCard(
+                                    module,
+                                    canTake,
+                                    timeUntilReset,
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
                 ),
               );
             },
@@ -384,27 +389,7 @@ class _QuizPageState extends State<QuizPage> {
                 ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
               ),
               const SizedBox(height: 40),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _restartQuiz,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF0066CC),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Retake Quiz',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
+              // Retake disabled: Users cannot retake the quiz on the same day.
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -658,7 +643,34 @@ class _QuizPageState extends State<QuizPage> {
             : BorderSide.none,
       ),
       child: InkWell(
-        onTap: answerSelected ? null : () => _selectAnswer(index),
+        onTap: answerSelected
+            ? null
+            : () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Confirm your answer'),
+                    content: Text('Submit this answer?\n\n"$answer"'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0066CC),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Confirm'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true) {
+                  _finalizeAnswer(index, correctAnswer);
+                }
+              },
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -693,23 +705,35 @@ class _QuizPageState extends State<QuizPage> {
       selectedAnswerIndex = null;
     });
 
+    // Show loading while fetching questions
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     // Load today's randomized questions
     final questions = await QuizService.getDailyQuestions(module.id, count: 5);
 
     if (mounted) {
+      Navigator.of(context).pop();
       setState(() {
         currentQuestions = questions;
       });
+      // Show a beautiful 3..2..1 countdown before starting
+      await _showCountdownOverlay();
     }
   }
 
-  void _selectAnswer(int index) {
+  void _finalizeAnswer(int index, int correctAnswer) {
     setState(() {
       selectedAnswerIndex = index;
       answerSelected = true;
     });
 
-    if (index == currentQuestions[currentQuestionIndex]['correctAnswer']) {
+    if (index == correctAnswer) {
       // Get coins from question (already calculated based on difficulty)
       int coinsEarned =
           currentQuestions[currentQuestionIndex]['coins'] as int? ?? 1;
@@ -751,14 +775,19 @@ class _QuizPageState extends State<QuizPage> {
     }
   }
 
-  void _restartQuiz() {
-    setState(() {
-      currentQuestionIndex = 0;
-      score = 0;
-      quizCompleted = false;
-      answerSelected = false;
-      selectedAnswerIndex = null;
-    });
+  // Retake disabled intentionally – users cannot retake on the same day.
+
+  Future<void> _showCountdownOverlay() async {
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'countdown',
+      barrierColor: Colors.black.withOpacity(0.6),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (context, anim1, anim2) {
+        return const _CountdownOverlay();
+      },
+    );
   }
 
   void _goBackToModules() {
@@ -766,10 +795,90 @@ class _QuizPageState extends State<QuizPage> {
       selectedModule = null;
       currentQuestions = [];
       currentQuestionIndex = 0;
-      score = 0;
       quizCompleted = false;
       answerSelected = false;
       selectedAnswerIndex = null;
     });
+  }
+}
+
+// Full-screen animated countdown 3 → 1
+class _CountdownOverlay extends StatefulWidget {
+  const _CountdownOverlay();
+
+  @override
+  State<_CountdownOverlay> createState() => _CountdownOverlayState();
+}
+
+class _CountdownOverlayState extends State<_CountdownOverlay> {
+  int _number = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _start();
+  }
+
+  Future<void> _start() async {
+    for (int i = 3; i >= 1; i--) {
+      if (!mounted) return;
+      setState(() => _number = i);
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Center(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Soft glowing backdrop circle
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF0066CC).withOpacity(0.35),
+                    Colors.transparent,
+                  ],
+                  radius: 0.8,
+                ),
+              ),
+            ),
+            // Countdown number with pretty scale + fade
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 600),
+              transitionBuilder: (child, animation) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutBack,
+                );
+                return FadeTransition(
+                  opacity: curved,
+                  child: ScaleTransition(scale: curved, child: child),
+                );
+              },
+              child: Text(
+                '$_number',
+                key: ValueKey(_number),
+                style: const TextStyle(
+                  fontSize: 96,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 2,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:uniperks/auth/login_page.dart';
+import 'package:uniperks/auth/admin_login_page.dart';
+import 'package:uniperks/services/authz_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uniperks/services/user_service.dart';
 import 'package:uniperks/services/quiz_service.dart';
 import 'package:uniperks/services/product_service.dart';
@@ -43,6 +46,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   void _logout(BuildContext context) {
+    // Also sign out Supabase session if any (admin auth)
+    try {
+      Supabase.instance.client.auth.signOut();
+    } catch (_) {}
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -51,164 +58,295 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 5,
-      child: Scaffold(
+    final supa = Supabase.instance.client;
+    final isAdminAuthed = supa.auth.currentUser != null;
+
+    if (!isAdminAuthed) {
+      // Gate the admin area until Supabase admin login is completed
+      return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                ),
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/images/logo/UniPerks.png',
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Admin Dashboard',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Color(0xFF0066CC),
-          elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text('Admin – Sign in required'),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.logout, color: Colors.white),
-              onPressed: () => _logout(context),
-              tooltip: 'Logout',
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminLoginPage()),
+                );
+              },
+              child: const Text(
+                'Admin Login',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
-          bottom: TabBar(
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
-            tabs: const [
-              Tab(icon: Icon(Icons.dashboard), text: 'Overview'),
-              Tab(icon: Icon(Icons.people), text: 'Users'),
-              Tab(icon: Icon(Icons.quiz), text: 'Quiz'),
-              Tab(icon: Icon(Icons.inventory), text: 'Products'),
-              Tab(icon: Icon(Icons.card_giftcard), text: 'Vouchers'),
-            ],
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.lock_outline, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text(
+                  'Admin sign-in required',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'To manage products, vouchers, and quiz content with RLS enabled, please sign in with your admin account.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.login),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AdminLoginPage()),
+                    );
+                  },
+                  label: const Text('Go to Admin Login'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => _logout(context),
+                  child: const Text('Back to App Login'),
+                ),
+              ],
+            ),
           ),
         ),
-        body: TabBarView(
-          children: [
-            _buildOverviewTab(),
-            _buildUsersTab(),
-            _buildQuizTab(),
-            _buildProductsTab(),
-            _buildVouchersTab(),
-          ],
-        ),
-      ),
+      );
+    }
+
+    return FutureBuilder<bool>(
+      future: AuthzService.currentUserIsAdmin(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            backgroundColor: Colors.white,
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.data != true) {
+          return Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(title: const Text('Admin – Not authorized')),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Your account is not authorized as admin.',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Please contact the owner to grant admin role in the users table or sign in with a different account.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: () {
+                        try {
+                          Supabase.instance.client.auth.signOut();
+                        } catch (_) {}
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const LoginPage()),
+                        );
+                      },
+                      child: const Text('Sign out'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        return DefaultTabController(
+          length: 5,
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/logo/UniPerks.png',
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Admin Dashboard',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Color(0xFF0066CC),
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Colors.white),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  onPressed: () => _logout(context),
+                  tooltip: 'Logout',
+                ),
+              ],
+              bottom: TabBar(
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                indicatorColor: Colors.white,
+                tabs: const [
+                  Tab(icon: Icon(Icons.dashboard), text: 'Overview'),
+                  Tab(icon: Icon(Icons.people), text: 'Users'),
+                  Tab(icon: Icon(Icons.quiz), text: 'Quiz'),
+                  Tab(icon: Icon(Icons.inventory), text: 'Products'),
+                  Tab(icon: Icon(Icons.card_giftcard), text: 'Vouchers'),
+                ],
+              ),
+            ),
+            body: TabBarView(
+              children: [
+                _buildOverviewTab(),
+                _buildUsersTab(),
+                _buildQuizTab(),
+                _buildProductsTab(),
+                _buildVouchersTab(),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildOverviewTab() {
-    final totalProducts = ProductService.getAllProducts();
+    return FutureBuilder<List<Product>>(
+      future: ProductService.getAllProducts(),
+      builder: (context, snapshot) {
+        final totalProducts = snapshot.data ?? [];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.admin_panel_settings,
-                    size: 40,
-                    color: Colors.deepPurple,
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.admin_panel_settings,
+                        size: 40,
+                        color: Colors.deepPurple,
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome, Admin!',
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          const Text('Manage your UniPerks system'),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 16),
-                  Column(
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'System Statistics',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      'Total Users',
+                      '${registeredUsers.length}',
+                      Icons.people,
+                      Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Products',
+                      '${totalProducts.length}',
+                      Icons.inventory,
+                      Colors.purple,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Quick Actions',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Welcome, Admin!',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                        '📚 Quiz Management',
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const Text('Manage your UniPerks system'),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Manage quiz modules, add/edit/delete questions, and track question statistics.',
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Go to the "Quiz Management" tab to manage questions.',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'System Statistics',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  'Total Users',
-                  '${registeredUsers.length}',
-                  Icons.people,
-                  Colors.blue,
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildStatCard(
-                  'Products',
-                  '${totalProducts.length}',
-                  Icons.inventory,
-                  Colors.purple,
-                ),
-              ),
+              const SizedBox(height: 20),
             ],
           ),
-          const SizedBox(height: 20),
-          Text('Quick Actions', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '📚 Quiz Management',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Manage quiz modules, add/edit/delete questions, and track question statistics.',
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Go to the "Quiz Management" tab to manage questions.',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -526,143 +664,182 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildProductsTab() {
-    final products = ProductService.getAllProducts();
+    return FutureBuilder<List<Product>>(
+      future: ProductService.getAllProducts(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final products = snapshot.data ?? [];
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                // Wrap text in Expanded to prevent overflow
-                child: Text(
-                  'Products (${products.length})',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _showAddProductDialog(),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Product'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          products.isEmpty
-              ? SizedBox(
-                  height: 200,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.inventory,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'No products yet',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text('Add some products to get started'),
-                      ],
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Products (${products.length})',
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
                   ),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: products.length,
-                  itemBuilder: (context, index) {
-                    final product = products[index];
-                    return Card(
-                      child: ListTile(
-                        leading: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.image, color: Colors.grey),
-                        ),
-                        title: Text(product.name),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddProductDialog(),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Product'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              products.isEmpty
+                  ? SizedBox(
+                      height: 200,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              product.description,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            Icon(
+                              Icons.inventory,
+                              size: 64,
+                              color: Colors.grey[400],
                             ),
-                            const SizedBox(height: 4),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  Text('\$${product.price.toStringAsFixed(2)}'),
-                                  if (product.discount > 0) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        '${product.discount}% OFF',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(width: 8),
-                                  Chip(
-                                    label: Text(product.category),
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                ],
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No products yet',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
                               ),
                             ),
+                            const SizedBox(height: 8),
+                            const Text('Add some products to get started'),
                           ],
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () =>
-                                  _showEditProductDialog(product, index),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () =>
-                                  _deleteProduct(product.name, index),
-                            ),
-                          ],
-                        ),
-                        isThreeLine: true,
                       ),
-                    );
-                  },
-                ),
-          const SizedBox(height: 20), // Add some bottom padding
-        ],
-      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: products.length,
+                      itemBuilder: (context, index) {
+                        final product = products[index];
+                        return Card(
+                          child: ListTile(
+                            leading: Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: product.imageUrl.isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        product.imageUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                              return const Icon(
+                                                Icons.image,
+                                                color: Colors.grey,
+                                              );
+                                            },
+                                      ),
+                                    )
+                                  : const Icon(Icons.image, color: Colors.grey),
+                            ),
+                            title: Text(product.name),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  product.description,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        'RM ${product.price.toStringAsFixed(2)}',
+                                      ),
+                                      if (product.discount > 0) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.red,
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '${product.discount}% OFF',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(width: 8),
+                                      Chip(
+                                        label: Text(product.category),
+                                        materialTapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Colors.blue,
+                                  ),
+                                  onPressed: () =>
+                                      _showEditProductDialog(product),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () => _deleteProduct(product),
+                                ),
+                              ],
+                            ),
+                            isThreeLine: true,
+                          ),
+                        );
+                      },
+                    ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -952,9 +1129,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             Radio<int>(
                               value: i,
                               groupValue: correctAnswer,
-                              onChanged: (value) {
+                              onChanged: (val) {
                                 setDialogState(() {
-                                  correctAnswer = value!;
+                                  correctAnswer = val!;
                                 });
                               },
                             ),
@@ -963,7 +1140,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 controller: answerControllers[i],
                                 decoration: InputDecoration(
                                   labelText:
-                                      'Option ${String.fromCharCode(65 + i)}',
+                                      'Answer ${String.fromCharCode(65 + i)}',
                                   border: const OutlineInputBorder(),
                                 ),
                               ),
@@ -982,44 +1159,78 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    if (questionController.text.isNotEmpty &&
-                        answerControllers.every(
-                          (controller) => controller.text.isNotEmpty,
-                        )) {
-                      final newQuestion = QuizQuestion(
-                        id: question?.id ?? 0, // Will be generated by DB if new
-                        moduleId: currentModule,
-                        question: questionController.text,
-                        answers: answerControllers.map((c) => c.text).toList(),
-                        correctAnswer: correctAnswer,
-                        difficulty: difficulty,
+                    // Basic validation
+                    if (questionController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter the question text'),
+                          backgroundColor: Colors.red,
+                        ),
                       );
+                      return;
+                    }
 
-                      bool success;
-                      if (isEditing) {
-                        success = await QuizService.updateQuestion(
-                          question.id,
-                          newQuestion,
-                        );
+                    final answers = answerControllers
+                        .map((c) => c.text.trim())
+                        .toList();
+                    if (answers.any((a) => a.isEmpty)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please fill in all answer options A–D',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    if (correctAnswer < 0 || correctAnswer >= answers.length) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please select the correct answer'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    final newQuestion = QuizQuestion(
+                      id: question?.id ?? 0, // DB will set if adding
+                      moduleId: currentModule,
+                      question: questionController.text.trim(),
+                      answers: answers,
+                      correctAnswer: correctAnswer,
+                      difficulty: difficulty,
+                    );
+
+                    bool success;
+                    if (isEditing) {
+                      success = await QuizService.updateQuestion(
+                        question.id,
+                        newQuestion,
+                      );
+                    } else {
+                      success = await QuizService.addQuestion(newQuestion);
+                    }
+
+                    if (mounted) {
+                      Navigator.pop(context);
+                      if (success) {
+                        setState(() {}); // Refresh the list
                       } else {
-                        success = await QuizService.addQuestion(newQuestion);
-                      }
-
-                      if (mounted) {
-                        Navigator.pop(context);
-                        if (success) {
-                          setState(() {}); // Refresh the list
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to save question'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Failed to save question'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
                       }
                     }
                   },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0066CC),
+                    foregroundColor: Colors.white,
+                  ),
                   child: Text(isEditing ? 'Update' : 'Add'),
                 ),
               ],
@@ -1095,30 +1306,48 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  void _deleteProduct(String productName, int index) {
-    showDialog(
+  void _deleteProduct(Product product) async {
+    final confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Delete Product'),
-          content: Text('Are you sure you want to delete "$productName"?'),
+          content: Text('Are you sure you want to delete "${product.name}"?'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                ProductService.removeProduct(index);
-                Navigator.pop(context);
-                setState(() {});
-              },
+              onPressed: () => Navigator.pop(context, true),
               child: const Text('Delete', style: TextStyle(color: Colors.red)),
             ),
           ],
         );
       },
     );
+
+    if (confirm == true && product.id != null) {
+      final success = await ProductService.deleteProduct(product.id!);
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Product deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          setState(() {});
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to delete product'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _deleteVoucher(Voucher voucher) async {
@@ -1337,11 +1566,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _showProductDialog();
   }
 
-  void _showEditProductDialog(Product product, int index) {
-    _showProductDialog(product: product, index: index);
+  void _showEditProductDialog(Product product) {
+    _showProductDialog(product: product);
   }
 
-  void _showProductDialog({Product? product, int? index}) {
+  // (Reverted) No direct image uploads — admin provides an image URL only.
+
+  void _showProductDialog({Product? product}) async {
     final isEditing = product != null;
     final nameController = TextEditingController(text: product?.name ?? '');
     final descriptionController = TextEditingController(
@@ -1353,7 +1584,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final discountController = TextEditingController(
       text: product?.discount.toString() ?? '0',
     );
-    String selectedCategory = product?.category ?? 'Clothing';
+    final imageUrlController = TextEditingController(
+      text: product?.imageUrl ?? '',
+    );
+
+    // URL-only mode (gallery upload removed)
+
+    // Get categories from database
+    final categories = await ProductService.getCategories();
+    final availableCategories = categories.where((c) => c != 'All').toList();
+    if (availableCategories.isEmpty) {
+      availableCategories.addAll([
+        'Clothing',
+        'Accessories',
+        'Stationery',
+        'Books',
+        'Electronics',
+      ]);
+    }
+
+    String selectedCategory = product?.category ?? availableCategories.first;
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -1386,7 +1638,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     TextField(
                       controller: priceController,
                       decoration: const InputDecoration(
-                        labelText: 'Price (\$)',
+                        labelText: 'Price (RM)',
                         border: OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.number,
@@ -1401,14 +1653,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
+                    // Image URL input
+                    TextField(
+                      controller: imageUrlController,
+                      decoration: const InputDecoration(
+                        labelText: 'Image URL',
+                        border: OutlineInputBorder(),
+                        hintText: 'https://example.com/image.jpg',
+                      ),
+                    ),
+                    // URL-only mode (gallery upload removed)
                     DropdownButtonFormField<String>(
                       value: selectedCategory,
                       decoration: const InputDecoration(
                         labelText: 'Category',
                         border: OutlineInputBorder(),
                       ),
-                      items: ProductService.getCategories()
-                          .where((category) => category != 'All')
+                      items: availableCategories
                           .map(
                             (category) => DropdownMenuItem(
                               value: category,
@@ -1431,34 +1692,61 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    if (nameController.text.isNotEmpty &&
-                        descriptionController.text.isNotEmpty &&
-                        priceController.text.isNotEmpty) {
-                      final newProduct = Product(
-                        id:
-                            product?.id ??
-                            DateTime.now().millisecondsSinceEpoch.toString(),
-                        name: nameController.text,
-                        description: descriptionController.text,
-                        price: double.tryParse(priceController.text) ?? 0.0,
-                        imageUrl:
-                            product?.imageUrl ??
-                            'https://via.placeholder.com/200x200?text=${nameController.text}',
-                        category: selectedCategory,
-                        discount: int.tryParse(discountController.text) ?? 0,
-                      );
+                  onPressed:
+                      (nameController.text.isNotEmpty &&
+                          descriptionController.text.isNotEmpty &&
+                          priceController.text.isNotEmpty)
+                      ? () async {
+                          final newProduct = Product(
+                            id: product?.id,
+                            name: nameController.text,
+                            description: descriptionController.text,
+                            price: double.tryParse(priceController.text) ?? 0.0,
+                            imageUrl: imageUrlController.text.isNotEmpty
+                                ? imageUrlController.text
+                                : 'https://via.placeholder.com/400x400?text=${Uri.encodeComponent(nameController.text)}',
+                            category: selectedCategory,
+                            discount:
+                                int.tryParse(discountController.text) ?? 0,
+                          );
 
-                      if (isEditing && index != null) {
-                        ProductService.updateProduct(index, newProduct);
-                      } else {
-                        ProductService.addProduct(newProduct);
-                      }
+                          bool success;
+                          if (isEditing && product.id != null) {
+                            success = await ProductService.updateProduct(
+                              product.id!,
+                              newProduct,
+                            );
+                          } else {
+                            success = await ProductService.addProduct(
+                              newProduct,
+                            );
+                          }
 
-                      Navigator.pop(context);
-                      setState(() {});
-                    }
-                  },
+                          if (mounted) {
+                            Navigator.pop(context);
+                            if (success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isEditing
+                                        ? 'Product updated successfully'
+                                        : 'Product added successfully',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              setState(() {});
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Failed to save product'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      : null,
                   child: Text(isEditing ? 'Update' : 'Add'),
                 ),
               ],
