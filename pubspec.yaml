@@ -36,6 +36,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   supabase_flutter: ^2.10.3
   get_storage: ^2.1.1
+  image_picker: ^1.1.2
+  mime: ^1.0.4
+  path: ^1.8.0
 
 dev_dependencies:
   flutter_test:

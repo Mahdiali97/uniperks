@@ -8,6 +8,8 @@ class Voucher {
   final int validDays;
   final bool active;
   final DateTime createdAt;
+  final int?
+  maxClaims; // Maximum total users who can redeem this voucher (null = unlimited)
 
   Voucher({
     required this.id,
@@ -19,6 +21,7 @@ class Voucher {
     required this.validDays,
     required this.active,
     required this.createdAt,
+    this.maxClaims,
   });
 
   factory Voucher.fromJson(Map<String, dynamic> json) {
@@ -32,6 +35,7 @@ class Voucher {
       validDays: json['valid_days'] as int,
       active: json['active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
+      maxClaims: json['max_claims'] as int?,
     );
   }
 
@@ -44,6 +48,7 @@ class Voucher {
       'coins_required': coinsRequired,
       'valid_days': validDays,
       'active': active,
+      if (maxClaims != null) 'max_claims': maxClaims,
     };
   }
 }

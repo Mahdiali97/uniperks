@@ -4,6 +4,7 @@ import 'package:uniperks/auth/admin_login_page.dart';
 import 'package:uniperks/services/authz_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uniperks/services/user_service.dart';
+import 'package:uniperks/pages/admin_product_upload_page.dart';
 import 'package:uniperks/services/quiz_service.dart';
 import 'package:uniperks/services/product_service.dart';
 import 'package:uniperks/services/voucher_service.dart';
@@ -19,15 +20,18 @@ class AdminDashboard extends StatefulWidget {
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _AdminDashboardState extends State<AdminDashboard> {
+class _AdminDashboardState extends State<AdminDashboard>
+    with SingleTickerProviderStateMixin {
   String selectedQuizModule = 'general_knowledge';
   List<Map<String, dynamic>> registeredUsers = [];
   bool isLoading = true;
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     _loadUsers();
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   Future<void> _loadUsers() async {
@@ -54,6 +58,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
       context,
       MaterialPageRoute(builder: (context) => const LoginPage()),
     );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -179,71 +189,70 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           );
         }
-        return DefaultTabController(
-          length: 5,
-          child: Scaffold(
-            backgroundColor: Colors.white,
-            appBar: AppBar(
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/logo/UniPerks.png',
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.cover,
-                      ),
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/logo/UniPerks.png',
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.cover,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Admin Dashboard',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Admin Dashboard',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
-                ],
-              ),
-              backgroundColor: Color(0xFF0066CC),
-              elevation: 0,
-              iconTheme: const IconThemeData(color: Colors.white),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.logout, color: Colors.white),
-                  onPressed: () => _logout(context),
-                  tooltip: 'Logout',
                 ),
               ],
-              bottom: TabBar(
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white70,
-                indicatorColor: Colors.white,
-                tabs: const [
-                  Tab(icon: Icon(Icons.dashboard), text: 'Overview'),
-                  Tab(icon: Icon(Icons.people), text: 'Users'),
-                  Tab(icon: Icon(Icons.quiz), text: 'Quiz'),
-                  Tab(icon: Icon(Icons.inventory), text: 'Products'),
-                  Tab(icon: Icon(Icons.card_giftcard), text: 'Vouchers'),
-                ],
-              ),
             ),
-            body: TabBarView(
-              children: [
-                _buildOverviewTab(),
-                _buildUsersTab(),
-                _buildQuizTab(),
-                _buildProductsTab(),
-                _buildVouchersTab(),
+            backgroundColor: Color(0xFF0066CC),
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.white),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.logout, color: Colors.white),
+                onPressed: () => _logout(context),
+                tooltip: 'Logout',
+              ),
+            ],
+            bottom: TabBar(
+              controller: _tabController,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              indicatorColor: Colors.white,
+              tabs: const [
+                Tab(icon: Icon(Icons.dashboard), text: 'Overview'),
+                Tab(icon: Icon(Icons.people), text: 'Users'),
+                Tab(icon: Icon(Icons.quiz), text: 'Quiz'),
+                Tab(icon: Icon(Icons.inventory), text: 'Products'),
+                Tab(icon: Icon(Icons.card_giftcard), text: 'Vouchers'),
               ],
             ),
+          ),
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildOverviewTab(),
+              _buildUsersTab(),
+              _buildQuizTab(),
+              _buildProductsTab(),
+              _buildVouchersTab(),
+            ],
           ),
         );
       },
@@ -691,7 +700,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                   ),
                   ElevatedButton.icon(
-                    onPressed: () => _showAddProductDialog(),
+                    onPressed: () => _openProductForm(),
                     icon: const Icon(Icons.add),
                     label: const Text('Add Product'),
                     style: ElevatedButton.styleFrom(
@@ -819,7 +828,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                     color: Colors.blue,
                                   ),
                                   onPressed: () =>
-                                      _showEditProductDialog(product),
+                                      _openProductForm(product: product),
                                 ),
                                 IconButton(
                                   icon: const Icon(
@@ -964,6 +973,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   label: Text('${voucher.coinsRequired} coins'),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
+                if (voucher.maxClaims != null)
+                  FutureBuilder<int>(
+                    future: VoucherService.getRedemptionCount(voucher.id),
+                    builder: (context, snap) {
+                      final claimed = snap.data ?? 0;
+                      final remaining = (voucher.maxClaims! - claimed).clamp(
+                        0,
+                        voucher.maxClaims!,
+                      );
+                      return Chip(
+                        label: Text(
+                          'Remaining: $remaining / ${voucher.maxClaims}',
+                        ),
+                      );
+                    },
+                  ),
                 Chip(
                   label: Text(
                     voucher.active ? 'Active' : 'Inactive',
@@ -1400,6 +1425,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final validDaysController = TextEditingController(
       text: voucher?.validDays.toString() ?? '30',
     );
+    final maxClaimsController = TextEditingController(
+      text: voucher?.maxClaims?.toString() ?? '',
+    );
     String selectedCategory = voucher?.category ?? 'General';
 
     final result = await showDialog<bool>(
@@ -1457,6 +1485,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
+                    TextField(
+                      controller: maxClaimsController,
+                      decoration: const InputDecoration(
+                        labelText: 'Max Claims (optional)',
+                        hintText: 'Leave empty for unlimited',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value: selectedCategory,
                       decoration: const InputDecoration(
@@ -1497,12 +1535,56 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    if (titleController.text.isNotEmpty &&
-                        descriptionController.text.isNotEmpty &&
-                        discountController.text.isNotEmpty &&
-                        coinsRequiredController.text.isNotEmpty) {
-                      Navigator.pop(context, true);
+                    // Basic required fields validation
+                    if (titleController.text.trim().isEmpty ||
+                        descriptionController.text.trim().isEmpty ||
+                        discountController.text.trim().isEmpty ||
+                        coinsRequiredController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please fill in all required fields'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
                     }
+
+                    // Validate numeric fields
+                    final discount = int.tryParse(discountController.text);
+                    final coins = int.tryParse(coinsRequiredController.text);
+                    final validDays = int.tryParse(validDaysController.text);
+                    if (discount == null ||
+                        coins == null ||
+                        validDays == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Discount, Coins and Valid Days must be integers',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Validate max claims (optional but must be positive integer if provided)
+                    final maxText = maxClaimsController.text.trim();
+                    if (maxText.isNotEmpty) {
+                      final maxVal = int.tryParse(maxText);
+                      if (maxVal == null || maxVal <= 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Max Claims must be a positive integer',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+                    }
+
+                    Navigator.pop(context, true);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Color(0xFF0066CC),
@@ -1526,6 +1608,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         discount: int.tryParse(discountController.text) ?? 10,
         coinsRequired: int.tryParse(coinsRequiredController.text) ?? 100,
         validDays: int.tryParse(validDaysController.text) ?? 30,
+        maxClaims: maxClaimsController.text.trim().isEmpty
+            ? null
+            : int.tryParse(maxClaimsController.text.trim()),
         active: voucher?.active ?? true,
         createdAt: voucher?.createdAt ?? DateTime.now(),
       );
@@ -1562,198 +1647,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
-  void _showAddProductDialog() {
-    _showProductDialog();
-  }
-
-  void _showEditProductDialog(Product product) {
-    _showProductDialog(product: product);
-  }
-
-  // (Reverted) No direct image uploads — admin provides an image URL only.
-
-  void _showProductDialog({Product? product}) async {
-    final isEditing = product != null;
-    final nameController = TextEditingController(text: product?.name ?? '');
-    final descriptionController = TextEditingController(
-      text: product?.description ?? '',
-    );
-    final priceController = TextEditingController(
-      text: product?.price.toString() ?? '',
-    );
-    final discountController = TextEditingController(
-      text: product?.discount.toString() ?? '0',
-    );
-    final imageUrlController = TextEditingController(
-      text: product?.imageUrl ?? '',
+  Future<void> _openProductForm({Product? product}) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdminProductUploadPage(product: product),
+      ),
     );
 
-    // URL-only mode (gallery upload removed)
-
-    // Get categories from database
-    final categories = await ProductService.getCategories();
-    final availableCategories = categories.where((c) => c != 'All').toList();
-    if (availableCategories.isEmpty) {
-      availableCategories.addAll([
-        'Clothing',
-        'Accessories',
-        'Stationery',
-        'Books',
-        'Electronics',
-      ]);
+    if (result == true && mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            product == null
+                ? 'Product added successfully'
+                : 'Product updated successfully',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
-
-    String selectedCategory = product?.category ?? availableCategories.first;
-
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(isEditing ? 'Edit Product' : 'Add New Product'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Product Name',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: priceController,
-                      decoration: const InputDecoration(
-                        labelText: 'Price (RM)',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: discountController,
-                      decoration: const InputDecoration(
-                        labelText: 'Discount (%)',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 16),
-                    // Image URL input
-                    TextField(
-                      controller: imageUrlController,
-                      decoration: const InputDecoration(
-                        labelText: 'Image URL',
-                        border: OutlineInputBorder(),
-                        hintText: 'https://example.com/image.jpg',
-                      ),
-                    ),
-                    // URL-only mode (gallery upload removed)
-                    DropdownButtonFormField<String>(
-                      value: selectedCategory,
-                      decoration: const InputDecoration(
-                        labelText: 'Category',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: availableCategories
-                          .map(
-                            (category) => DropdownMenuItem(
-                              value: category,
-                              child: Text(category),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedCategory = value!;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed:
-                      (nameController.text.isNotEmpty &&
-                          descriptionController.text.isNotEmpty &&
-                          priceController.text.isNotEmpty)
-                      ? () async {
-                          final newProduct = Product(
-                            id: product?.id,
-                            name: nameController.text,
-                            description: descriptionController.text,
-                            price: double.tryParse(priceController.text) ?? 0.0,
-                            imageUrl: imageUrlController.text.isNotEmpty
-                                ? imageUrlController.text
-                                : 'https://via.placeholder.com/400x400?text=${Uri.encodeComponent(nameController.text)}',
-                            category: selectedCategory,
-                            discount:
-                                int.tryParse(discountController.text) ?? 0,
-                          );
-
-                          bool success;
-                          if (isEditing && product.id != null) {
-                            success = await ProductService.updateProduct(
-                              product.id!,
-                              newProduct,
-                            );
-                          } else {
-                            success = await ProductService.addProduct(
-                              newProduct,
-                            );
-                          }
-
-                          if (mounted) {
-                            Navigator.pop(context);
-                            if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    isEditing
-                                        ? 'Product updated successfully'
-                                        : 'Product added successfully',
-                                  ),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                              setState(() {});
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Failed to save product'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          }
-                        }
-                      : null,
-                  child: Text(isEditing ? 'Update' : 'Add'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
   }
 }

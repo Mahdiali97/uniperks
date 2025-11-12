@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:uniperks/pages/product_catalog_page.dart';
+import 'package:uniperks/pages/animated_product_catalog_page.dart';
 
 class ShopPage extends StatelessWidget {
   const ShopPage({super.key});
@@ -8,6 +8,6 @@ class ShopPage extends StatelessWidget {
   Widget build(BuildContext context) {
     // This is just a wrapper to maintain consistency
     // The actual shopping functionality is in ProductCatalogPage
-    return const ProductCatalogPage(username: 'guest');
+    return const AnimatedProductCatalogPage(username: 'guest');
   }
 }

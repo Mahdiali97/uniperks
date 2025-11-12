@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/cart_item.dart';
 import '../services/cart_service.dart';
 import '../services/user_coins_service.dart';
+import '../services/voucher_service.dart';
+import '../widgets/floating_reward_badge.dart';
 
 class CartPage extends StatefulWidget {
   final String username;
@@ -13,90 +15,119 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> {
+  final GlobalKey<FloatingRewardBadgeOverlayState> _overlayKey = GlobalKey();
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<CartItem>>(
-      future: CartService.getCartItems(widget.username),
-      builder: (context, cartSnapshot) {
-        if (cartSnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    return FloatingRewardBadgeOverlay(
+      key: _overlayKey,
+      child: FutureBuilder<List<CartItem>>(
+        future: CartService.getCartItems(widget.username),
+        builder: (context, cartSnapshot) {
+          if (cartSnapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        if (cartSnapshot.hasError) {
-          return Center(child: Text('Error: ${cartSnapshot.error}'));
-        }
+          if (cartSnapshot.hasError) {
+            return Center(child: Text('Error: ${cartSnapshot.error}'));
+          }
 
-        final cartItems = cartSnapshot.data ?? [];
+          final cartItems = cartSnapshot.data ?? [];
 
-        return FutureBuilder<double>(
-          future: CartService.getTotalPrice(widget.username),
-          builder: (context, priceSnapshot) {
-            if (priceSnapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
+          return FutureBuilder<Map<String, dynamic>?>(
+            future: CartService.getCartVoucher(widget.username),
+            builder: (context, voucherSnapshot) {
+              if (voucherSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            final totalPrice = priceSnapshot.data ?? 0.0;
+              final cartVoucher = voucherSnapshot.data;
 
-            if (cartItems.isEmpty) {
-              return RefreshIndicator(
-                onRefresh: () async => setState(() {}),
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    const SizedBox(height: 120),
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.shopping_cart_outlined,
-                            size: 100,
-                            color: Colors.grey[300],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Your cart is empty',
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Add some products to get started',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Colors.grey[600]),
-                          ),
-                        ],
+              if (cartItems.isEmpty) {
+                return RefreshIndicator(
+                  onRefresh: () async => setState(() {}),
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      const SizedBox(height: 120),
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.shopping_cart_outlined,
+                              size: 100,
+                              color: Colors.grey[300],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Your cart is empty',
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Add some products to get started',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final itemsCount = cartItems.fold<int>(
+                0,
+                (sum, item) => sum + item.quantity,
+              );
+
+              // Calculate totals (cart-level voucher applied to entire subtotal)
+              final subtotal = cartItems.fold<double>(
+                0,
+                (sum, item) => sum + (item.totalPrice),
+              );
+
+              final voucherDiscount = cartVoucher?['voucher_discount'] as int?;
+              final totalVoucherSavings =
+                  voucherDiscount != null && voucherDiscount > 0
+                  ? subtotal * (voucherDiscount / 100)
+                  : 0.0;
+              final finalTotal = subtotal - totalVoucherSavings;
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: () async => setState(() {}),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: cartItems.length,
+                        itemBuilder: (context, index) {
+                          final cartItem = cartItems[index];
+                          return _buildCartItem(cartItem);
+                        },
                       ),
                     ),
-                  ],
-                ),
-              );
-            }
-
-            return Column(
-              children: [
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: () async => setState(() {}),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: cartItems.length,
-                      itemBuilder: (context, index) {
-                        final cartItem = cartItems[index];
-                        return _buildCartItem(cartItem);
-                      },
-                    ),
                   ),
-                ),
-                _buildCheckoutSection(totalPrice),
-              ],
-            );
-          },
-        );
-      },
+                  _buildCheckoutSection(
+                    subtotal,
+                    finalTotal,
+                    totalVoucherSavings,
+                    itemsCount,
+                    cartVoucher,
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -159,20 +190,27 @@ class _CartPageState extends State<CartPage> {
                     style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
+                  // Pricing
                   Row(
                     children: [
-                      Text(
-                        '₹${cartItem.product.discountedPrice.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0066CC),
-                        ),
+                      // Price
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'RM${cartItem.unitPrice.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0066CC),
+                            ),
+                          ),
+                        ],
                       ),
                       if (cartItem.product.discount > 0) ...[
                         const SizedBox(width: 8),
                         Text(
-                          '₹${cartItem.product.price.toStringAsFixed(0)}',
+                          'RM ${cartItem.product.price.toStringAsFixed(0)}',
                           style: TextStyle(
                             fontSize: 12,
                             decoration: TextDecoration.lineThrough,
@@ -294,7 +332,13 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildCheckoutSection(double totalPrice) {
+  Widget _buildCheckoutSection(
+    double subtotal,
+    double finalTotal,
+    double totalVoucherSavings,
+    int itemsCount,
+    Map<String, dynamic>? cartVoucher,
+  ) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -312,15 +356,136 @@ class _CartPageState extends State<CartPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Applied voucher display (if any)
+            if (cartVoucher != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.green.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.local_offer,
+                                size: 16,
+                                color: Colors.green,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  cartVoucher['voucher_title'],
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.green,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${cartVoucher['voucher_discount']}% off',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await CartService.removeVoucherFromCart(
+                          widget.username,
+                        );
+                        if (mounted) setState(() {});
+                      },
+                      child: const Text('Remove'),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ElevatedButton.icon(
+                  onPressed: () => _pickVoucherForCart(),
+                  icon: const Icon(Icons.local_offer),
+                  label: const Text('Apply Voucher'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF5F7FA),
+                    foregroundColor: const Color(0xFF0066CC),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Price breakdown
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Total Price for 4 item(s)',
+                  'Subtotal',
                   style: TextStyle(fontSize: 14, color: Colors.black54),
                 ),
                 Text(
-                  '₹${totalPrice.toStringAsFixed(0)}',
+                  'RM${subtotal.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+              ],
+            ),
+            if (totalVoucherSavings > 0) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Voucher Discount',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.green,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '-RM${totalVoucherSavings.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.green,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            // Total
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total for $itemsCount item(s)',
+                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                ),
+                Text(
+                  'RM${finalTotal.toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -333,7 +498,7 @@ class _CartPageState extends State<CartPage> {
             SizedBox(
               height: 56,
               child: ElevatedButton(
-                onPressed: () => _proceedToCheckout(totalPrice),
+                onPressed: () => _proceedToCheckout(finalTotal),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0066CC),
                   foregroundColor: Colors.white,
@@ -368,7 +533,7 @@ class _CartPageState extends State<CartPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Total Amount: \$${totalPrice.toStringAsFixed(2)}'),
+              Text('Total Amount: RM${totalPrice.toStringAsFixed(2)}'),
               const SizedBox(height: 8),
               const Text(
                 'This is a demo checkout. In a real app, you would integrate with a payment gateway.',
@@ -383,18 +548,33 @@ class _CartPageState extends State<CartPage> {
             ElevatedButton(
               onPressed: () async {
                 // Simulate successful purchase
+                final coinsEarned = (totalPrice * 0.1).round();
                 await CartService.clearCart(widget.username);
                 await UserCoinsService.addCoins(
                   widget.username,
-                  (totalPrice * 0.1).round(),
+                  coinsEarned,
                 ); // 10% cashback in coins
                 if (!mounted) return;
                 Navigator.pop(context);
                 setState(() {});
+
+                // Show floating reward badge for cashback
+                _overlayKey.currentState?.showRewardBadge(
+                  RewardBadgeConfig(
+                    icon: Icons.card_giftcard,
+                    label: '🎉 Cashback!\n+$coinsEarned coins',
+                    mainColor: Colors.green,
+                    accentColor: Colors.lightGreen,
+                    size: RewardBadgeSize.large,
+                    sparkleCount: 15,
+                    displayDuration: const Duration(milliseconds: 2500),
+                  ),
+                );
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      'Purchase successful! You earned ${(totalPrice * 0.1).round()} coins!',
+                      'Purchase successful! You earned $coinsEarned coins!',
                     ),
                     backgroundColor: Colors.green,
                   ),
@@ -406,6 +586,143 @@ class _CartPageState extends State<CartPage> {
               child: const Text('Complete Purchase'),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Future<void> _pickVoucherForCart() async {
+    // Fetch user's active redeemed vouchers - any voucher can be used for the entire cart
+    final all = await VoucherService.getActiveRedeemedVouchers(widget.username);
+
+    if (!mounted) return;
+
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        if (all.isEmpty) {
+          return SizedBox(
+            height: 200,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.local_offer, size: 48, color: Colors.grey),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No available vouchers',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'You haven\'t redeemed any vouchers yet.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: 400,
+          child: ListView(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Apply Voucher to Cart',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '📋 Terms & Conditions:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            '• Only ONE voucher per purchase\n• Applies to entire cart\n• Discount applied to subtotal\n• Cannot combine vouchers',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: all.length,
+                itemBuilder: (context, i) {
+                  final rv = all[i];
+                  return ListTile(
+                    leading: const Icon(
+                      Icons.local_offer,
+                      color: Color(0xFF0066CC),
+                    ),
+                    title: Text(rv.voucherTitle),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Category: ${rv.voucherCategory}'),
+                        Text(
+                          'Expires: ${rv.expiresAt.day}/${rv.expiresAt.month}/${rv.expiresAt.year}',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ],
+                    ),
+                    trailing: const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                    ),
+                    onTap: () async {
+                      // Apply voucher to entire cart
+                      await CartService.applyVoucherToCart(widget.username, rv);
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Applied: ${rv.voucherTitle}'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                      Navigator.pop(context);
+                      setState(() {});
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
         );
       },
     );

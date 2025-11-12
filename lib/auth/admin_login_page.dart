@@ -70,10 +70,15 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0066CC), Color(0xFF0052A3), Color(0xFF003D7A)],
-            stops: [0.0, 0.5, 1.0],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF0066CC), // Premium Blue
+              Color(0xFF0052A3), // Dark Blue
+              Color(0xFFF0F7FF), // Light Blue-White
+              Color(0xFFFFFFFF), // Pure White
+            ],
+            stops: [0.0, 0.35, 0.7, 1.0],
           ),
         ),
         child: SafeArea(
@@ -204,8 +209,9 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                               if (v == null || v.trim().isEmpty) {
                                 return 'Email is required';
                               }
-                              if (!v.contains('@'))
+                              if (!v.contains('@')) {
                                 return 'Enter a valid email';
+                              }
                               return null;
                             },
                           ),

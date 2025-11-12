@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../services/cart_service.dart';
+import '../services/voucher_service.dart';
+import '../models/redeemed_voucher.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final Product product;
@@ -18,14 +20,7 @@ class ProductDetailPage extends StatefulWidget {
 
 class _ProductDetailPageState extends State<ProductDetailPage> {
   int _quantity = 1;
-  int selectedColorIndex = 0;
-
-  final List<Color> availableColors = [
-    const Color(0xFF2E4057), // Navy/Dark Blue
-    const Color(0xFFCC6B49), // Rust/Orange
-    const Color(0xFFE8C4A0), // Beige/Tan
-    const Color(0xFF6FB98F), // Green
-  ];
+  RedeemedVoucher? _selectedVoucher;
 
   void _incrementQuantity() {
     setState(() {
@@ -69,6 +64,65 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         ),
       );
     }
+  }
+
+  Future<void> _pickVoucher() async {
+    // Fetch user's active redeemed vouchers and filter by category
+    final all = await VoucherService.getActiveRedeemedVouchers(widget.username);
+    final category = widget.product.category;
+    final eligible = all
+        .where(
+          (rv) =>
+              rv.voucherCategory == 'General' || rv.voucherCategory == category,
+        )
+        .toList();
+
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        if (eligible.isEmpty) {
+          return SizedBox(
+            height: 220,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'No eligible vouchers for ${widget.product.category}.',
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          );
+        }
+        return SizedBox(
+          height: 360,
+          child: ListView.builder(
+            itemCount: eligible.length,
+            itemBuilder: (context, i) {
+              final rv = eligible[i];
+              return ListTile(
+                leading: const Icon(
+                  Icons.local_offer,
+                  color: Color(0xFF0066CC),
+                ),
+                title: Text(rv.voucherTitle),
+                subtitle: Text(
+                  'Category: ${rv.voucherCategory} • Expires: ${rv.expiresAt.day}/${rv.expiresAt.month}/${rv.expiresAt.year}',
+                ),
+                onTap: () {
+                  setState(() => _selectedVoucher = rv);
+                  Navigator.pop(context);
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -129,62 +183,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           ),
                   ),
 
-                  // Color Selector Thumbnails
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    child: Row(
-                      children: List.generate(
-                        availableColors.length.clamp(0, 4),
-                        (index) => GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              selectedColorIndex = index;
-                            });
-                          },
-                          child: Container(
-                            width: 60,
-                            height: 60,
-                            margin: const EdgeInsets.only(right: 12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF5F7FA),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: selectedColorIndex == index
-                                    ? const Color(0xFF0066CC)
-                                    : Colors.transparent,
-                                width: 2,
-                              ),
-                            ),
-                            child: product.imageUrl.isNotEmpty
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Image.network(
-                                      product.imageUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                            return const Icon(
-                                              Icons.image,
-                                              size: 24,
-                                              color: Colors.grey,
-                                            );
-                                          },
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.image,
-                                    size: 24,
-                                    color: Colors.grey,
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
                   // Product Details
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -206,7 +204,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         Row(
                           children: [
                             Text(
-                              '₹${discountedPrice.toStringAsFixed(0)}',
+                              'RM${discountedPrice.toStringAsFixed(0)}',
                               style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
@@ -216,7 +214,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             if (product.discount > 0) ...[
                               const SizedBox(width: 12),
                               Text(
-                                '₹${product.price.toStringAsFixed(0)}',
+                                'RM${product.price.toStringAsFixed(0)}',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   decoration: TextDecoration.lineThrough,
@@ -224,58 +222,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                 ),
                               ),
                             ],
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Color Section
-                        Row(
-                          children: [
-                            const Text(
-                              'Color:',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            ...List.generate(
-                              availableColors.length,
-                              (index) => GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    selectedColorIndex = index;
-                                  });
-                                },
-                                child: Container(
-                                  width: 32,
-                                  height: 32,
-                                  margin: const EdgeInsets.only(right: 8),
-                                  decoration: BoxDecoration(
-                                    color: availableColors[index],
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: selectedColorIndex == index
-                                          ? const Color(0xFF0066CC)
-                                          : Colors.grey.shade300,
-                                      width: selectedColorIndex == index
-                                          ? 3
-                                          : 1,
-                                    ),
-                                  ),
-                                  child: selectedColorIndex == index
-                                      ? const Center(
-                                          child: Icon(
-                                            Icons.check,
-                                            size: 18,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                         const SizedBox(height: 20),
@@ -327,6 +273,36 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           ],
                         ),
                         const SizedBox(height: 24),
+
+                        // Voucher picker
+                        Row(
+                          children: [
+                            const Text(
+                              'Voucher:',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const Spacer(),
+                            TextButton.icon(
+                              onPressed: _pickVoucher,
+                              icon: const Icon(
+                                Icons.local_offer,
+                                color: Color(0xFF0066CC),
+                              ),
+                              label: Text(
+                                _selectedVoucher == null
+                                    ? 'Select Voucher'
+                                    : 'Applied: ${_selectedVoucher!.voucherTitle}',
+                                style: const TextStyle(
+                                  color: Color(0xFF0066CC),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
 
                         // Description
                         const Text(

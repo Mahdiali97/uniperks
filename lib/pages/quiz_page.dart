@@ -3,6 +3,7 @@ import '../services/user_coins_service.dart';
 import '../services/quiz_service.dart';
 import '../services/daily_quiz_service.dart';
 import '../models/quiz_module.dart';
+import '../widgets/floating_reward_badge.dart';
 
 class QuizPage extends StatefulWidget {
   final String username;
@@ -14,6 +15,7 @@ class QuizPage extends StatefulWidget {
 }
 
 class _QuizPageState extends State<QuizPage> {
+  final GlobalKey<FloatingRewardBadgeOverlayState> _overlayKey = GlobalKey();
   QuizModule? selectedModule;
   int currentQuestionIndex = 0;
   int score = 0;
@@ -40,167 +42,175 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   Widget _buildModuleSelection() {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Daily Quiz Challenge',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-        ),
+    return FloatingRewardBadgeOverlay(
+      key: _overlayKey,
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        automaticallyImplyLeading: false,
-      ),
-      body: FutureBuilder<int>(
-        future: DailyQuizService.getTodayCompletedQuizzesCount(widget.username),
-        builder: (context, completedSnapshot) {
-          if (completedSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+        appBar: AppBar(
+          title: const Text(
+            'Daily Quiz Challenge',
+            style: TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.black87),
+          automaticallyImplyLeading: false,
+        ),
+        body: FutureBuilder<int>(
+          future: DailyQuizService.getTodayCompletedQuizzesCount(
+            widget.username,
+          ),
+          builder: (context, completedSnapshot) {
+            if (completedSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          final todayCompletedCount = completedSnapshot.data ?? 0;
+            final todayCompletedCount = completedSnapshot.data ?? 0;
 
-          return FutureBuilder<List<QuizModule>>(
-            future: QuizService.getQuizModules(),
-            builder: (context, modulesSnapshot) {
-              if (modulesSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+            return FutureBuilder<List<QuizModule>>(
+              future: QuizService.getQuizModules(),
+              builder: (context, modulesSnapshot) {
+                if (modulesSnapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-              if (modulesSnapshot.hasError) {
-                return Center(child: Text('Error: ${modulesSnapshot.error}'));
-              }
+                if (modulesSnapshot.hasError) {
+                  return Center(child: Text('Error: ${modulesSnapshot.error}'));
+                }
 
-              final modules = modulesSnapshot.data ?? [];
+                final modules = modulesSnapshot.data ?? [];
 
-              return RefreshIndicator(
-                onRefresh: () async => setState(() {}),
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      Text(
-                        'Test your knowledge',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Complete quizzes to earn coins',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Daily Progress Card
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16.0),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF4A90E2), Color(0xFF0066CC)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
+                return RefreshIndicator(
+                  onRefresh: () async => setState(() {}),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Text(
+                          'Today\'s Progress',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.calendar_today,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Today\'s Progress',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
+                        const SizedBox(height: 24),
+
+                        // Daily Progress Card
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16.0),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF4A90E2), Color(0xFF0066CC)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.calendar_today,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Today\'s Progress',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: LinearProgressIndicator(
+                                  value: modules.isNotEmpty
+                                      ? todayCompletedCount / modules.length
+                                      : 0,
+                                  minHeight: 8,
+                                  backgroundColor: Colors.white.withOpacity(
+                                    0.3,
+                                  ),
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
                                       ),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: LinearProgressIndicator(
-                                value: modules.isNotEmpty
-                                    ? todayCompletedCount / modules.length
-                                    : 0,
-                                minHeight: 8,
-                                backgroundColor: Colors.white.withOpacity(0.3),
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '$todayCompletedCount of ${modules.length} completed',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '$todayCompletedCount of ${modules.length} completed',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Available Modules
-                      Text(
-                        'Available Modules',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Modules List
-                      ...modules.map((module) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: FutureBuilder<bool>(
-                            future: DailyQuizService.canTakeQuizToday(
-                              widget.username,
-                              module.id,
-                            ),
-                            builder: (context, canTakeSnapshot) {
-                              final canTake = canTakeSnapshot.data ?? false;
-                              return FutureBuilder<String>(
-                                future: DailyQuizService.getTimeUntilReset(
-                                  widget.username,
-                                  module.id,
-                                ),
-                                builder: (context, timeSnapshot) {
-                                  final timeUntilReset =
-                                      timeSnapshot.data ?? '';
-                                  return _buildModuleCard(
-                                    module,
-                                    canTake,
-                                    timeUntilReset,
-                                  );
-                                },
-                              );
-                            },
+                            ],
                           ),
-                        );
-                      }),
-                    ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Available Modules
+                        Text(
+                          'Available Modules',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Modules List
+                        ...modules.map((module) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: FutureBuilder<bool>(
+                              future: DailyQuizService.canTakeQuizToday(
+                                widget.username,
+                                module.id,
+                              ),
+                              builder: (context, canTakeSnapshot) {
+                                final canTake = canTakeSnapshot.data ?? false;
+                                return FutureBuilder<String>(
+                                  future: DailyQuizService.getTimeUntilReset(
+                                    widget.username,
+                                    module.id,
+                                  ),
+                                  builder: (context, timeSnapshot) {
+                                    final timeUntilReset =
+                                        timeSnapshot.data ?? '';
+                                    return _buildModuleCard(
+                                      module,
+                                      canTake,
+                                      timeUntilReset,
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -336,83 +346,89 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   Widget _buildQuizCompletedScreen() {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Quiz Complete',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-        ),
+    return FloatingRewardBadgeOverlay(
+      key: _overlayKey,
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        iconTheme: const IconThemeData(color: Colors.black87),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.green.withOpacity(0.1),
-                ),
-                child: const Icon(
-                  Icons.check_circle,
-                  size: 80,
-                  color: Colors.green,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Great Job!',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'You scored $score coins!',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Color(0xFF0066CC),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${currentQuestions.length} questions completed',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 40),
-              // Retake disabled: Users cannot retake the quiz on the same day.
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton(
-                  onPressed: _goBackToModules,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF0066CC)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+        appBar: AppBar(
+          title: const Text(
+            'Quiz Complete',
+            style: TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          iconTheme: const IconThemeData(color: Colors.black87),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.green.withOpacity(0.1),
                   ),
-                  child: const Text(
-                    'Back to Modules',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0066CC),
-                    ),
+                  child: const Icon(
+                    Icons.check_circle,
+                    size: 80,
+                    color: Colors.green,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                Text(
+                  'Great Job!',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'You scored $score coins!',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Color(0xFF0066CC),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${currentQuestions.length} questions completed',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 40),
+                // Retake disabled: Users cannot retake the quiz on the same day.
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: OutlinedButton(
+                    onPressed: _goBackToModules,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF0066CC)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Back to Modules',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0066CC),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -422,193 +438,202 @@ class _QuizPageState extends State<QuizPage> {
   Widget _buildQuizScreen() {
     final currentQuestion = currentQuestions[currentQuestionIndex];
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              selectedModule!.title,
-              style: const TextStyle(fontSize: 14, color: Colors.black87),
-            ),
-            Text(
-              'Question ${currentQuestionIndex + 1}/${currentQuestions.length}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
+    return FloatingRewardBadgeOverlay(
+      key: _overlayKey,
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black87,
-        leading: IconButton(
-          onPressed: _goBackToModules,
-          icon: const Icon(Icons.arrow_back),
-        ),
-        actions: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            margin: const EdgeInsets.only(right: 16),
-            decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.amber.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.monetization_on,
-                  color: Colors.amber,
-                  size: 16,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '$score',
-                  style: const TextStyle(
-                    color: Colors.amber,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
+        appBar: AppBar(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                selectedModule!.title,
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+              ),
+              Text(
+                'Question ${currentQuestionIndex + 1}/${currentQuestions.length}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Progress Bar
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: (currentQuestionIndex + 1) / currentQuestions.length,
-                minHeight: 6,
-                backgroundColor: Colors.grey[200],
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFF0066CC),
-                ),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          foregroundColor: Colors.black87,
+          leading: IconButton(
+            onPressed: _goBackToModules,
+            icon: const Icon(Icons.arrow_back),
+          ),
+          actions: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              margin: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.amber.withOpacity(0.3)),
               ),
-            ),
-            const SizedBox(height: 24),
-
-            // Question
-            Text(
-              currentQuestion['question'],
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-
-            // Answers
-            Expanded(
-              child: ListView.builder(
-                itemCount: (currentQuestion['answers'] as List).length,
-                itemBuilder: (context, index) {
-                  return _buildAnswerOption(
-                    currentQuestion['answers'][index],
-                    index,
-                    currentQuestion['correctAnswer'],
-                  );
-                },
-              ),
-            ),
-
-            // Next Button
-            if (answerSelected)
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _nextQuestion,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF0066CC),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.monetization_on,
+                    color: Colors.amber,
+                    size: 16,
                   ),
-                  child: Text(
-                    currentQuestionIndex == currentQuestions.length - 1
-                        ? 'Finish'
-                        : 'Next',
+                  const SizedBox(width: 4),
+                  Text(
+                    '$score',
                     style: const TextStyle(
-                      fontSize: 16,
+                      color: Colors.amber,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      fontSize: 14,
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Progress Bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: (currentQuestionIndex + 1) / currentQuestions.length,
+                  minHeight: 6,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFF0066CC),
                   ),
                 ),
               ),
-          ],
+              const SizedBox(height: 24),
+
+              // Question
+              Text(
+                currentQuestion['question'],
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 24),
+
+              // Answers
+              Expanded(
+                child: ListView.builder(
+                  itemCount: (currentQuestion['answers'] as List).length,
+                  itemBuilder: (context, index) {
+                    return _buildAnswerOption(
+                      currentQuestion['answers'][index],
+                      index,
+                      currentQuestion['correctAnswer'],
+                    );
+                  },
+                ),
+              ),
+
+              // Next Button
+              if (answerSelected)
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _nextQuestion,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF0066CC),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      currentQuestionIndex == currentQuestions.length - 1
+                          ? 'Finish'
+                          : 'Next',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildNoQuestionsScreen() {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Quiz Not Available',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-        ),
+    return FloatingRewardBadgeOverlay(
+      key: _overlayKey,
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black87,
-        leading: IconButton(
-          onPressed: _goBackToModules,
-          icon: const Icon(Icons.arrow_back),
+        appBar: AppBar(
+          title: const Text(
+            'Quiz Not Available',
+            style: TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          foregroundColor: Colors.black87,
+          leading: IconButton(
+            onPressed: _goBackToModules,
+            icon: const Icon(Icons.arrow_back),
+          ),
         ),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 80, color: Colors.grey[400]),
-              const SizedBox(height: 16),
-              Text(
-                'No Questions Found',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'This quiz module does not have any questions yet.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _goBackToModules,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF0066CC),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Back to Modules',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 80, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'No Questions Found',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  'This quiz module does not have any questions yet.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _goBackToModules,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF0066CC),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Back to Modules',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -738,6 +763,18 @@ class _QuizPageState extends State<QuizPage> {
       int coinsEarned =
           currentQuestions[currentQuestionIndex]['coins'] as int? ?? 1;
       score += coinsEarned;
+
+      // Show floating reward badge for correct answer
+      _overlayKey.currentState?.showRewardBadge(
+        RewardBadgeConfig(
+          icon: Icons.star,
+          label: '+$coinsEarned',
+          mainColor: Colors.amber,
+          accentColor: Colors.orange,
+          size: RewardBadgeSize.medium,
+          sparkleCount: 10,
+        ),
+      );
     }
   }
 
@@ -763,6 +800,19 @@ class _QuizPageState extends State<QuizPage> {
         setState(() {
           quizCompleted = true;
         });
+
+        // Show completion reward badge
+        _overlayKey.currentState?.showRewardBadge(
+          RewardBadgeConfig(
+            icon: Icons.emoji_events,
+            label: 'Quiz Complete!\n+$score coins',
+            mainColor: Colors.green,
+            accentColor: Colors.lightGreen,
+            size: RewardBadgeSize.large,
+            sparkleCount: 15,
+            displayDuration: const Duration(milliseconds: 2500),
+          ),
+        );
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

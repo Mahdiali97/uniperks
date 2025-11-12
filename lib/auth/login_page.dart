@@ -4,6 +4,7 @@ import 'package:uniperks/services/user_service.dart';
 import 'package:uniperks/admin_dashboard.dart';
 import 'package:uniperks/user_dashboard.dart';
 import 'package:uniperks/auth/admin_login_page.dart';
+import 'package:uniperks/widgets/animated_border_textfield.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -80,10 +81,15 @@ class _LoginPageState extends State<LoginPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0066CC), Color(0xFF0052A3), Color(0xFF003D7A)],
-            stops: [0.0, 0.5, 1.0],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF0066CC), // Premium Blue
+              Color(0xFF0052A3), // Dark Blue
+              Color(0xFFF0F7FF), // Light Blue-White
+              Color(0xFFFFFFFF), // Pure White
+            ],
+            stops: [0.0, 0.35, 0.7, 1.0],
           ),
         ),
         child: SafeArea(
@@ -140,7 +146,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Welcome back!',
+                    'Welcome !',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: 16,
@@ -166,36 +172,20 @@ class _LoginPageState extends State<LoginPage> {
                       key: _formKey,
                       child: Column(
                         children: [
-                          // Username Field
-                          TextFormField(
+                          // Username Field with Animated Border
+                          AnimatedBorderTextField(
                             controller: _usernameController,
-                            decoration: InputDecoration(
-                              labelText: 'Username',
-                              hintText: 'Enter your username',
-                              prefixIcon: const Icon(
-                                Icons.person,
-                                color: Color(0xFF0066CC),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF0066CC),
-                                  width: 2,
-                                ),
-                              ),
-                            ),
+                            hintText: 'Enter your username',
+                            labelText: 'Username',
+                            prefixIcon: Icons.person,
+                            keyboardType: TextInputType.text,
+                            textInputAction: TextInputAction.next,
+                            gradientColors: const [
+                              Color(0xFF0066CC),
+                              Color(0xFF0052A3),
+                              Color(0xFF667EEA),
+                              Color(0xFF0066CC),
+                            ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter your username';
@@ -205,56 +195,35 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Password Field
-                          TextFormField(
+                          // Password Field with Animated Border
+                          AnimatedBorderTextField(
                             controller: _passwordController,
+                            hintText: 'Enter your password',
+                            labelText: 'Password',
+                            prefixIcon: Icons.lock,
+                            suffixIcon: _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            onSuffixIconTap: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
                             obscureText: _obscurePassword,
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              hintText: 'Enter your password',
-                              prefixIcon: const Icon(
-                                Icons.lock,
-                                color: Color(0xFF0066CC),
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                  color: Color(0xFF0066CC),
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF0066CC),
-                                  width: 2,
-                                ),
-                              ),
-                            ),
+                            textInputAction: TextInputAction.done,
+                            gradientColors: const [
+                              Color(0xFF0066CC),
+                              Color(0xFF0052A3),
+                              Color(0xFF667EEA),
+                              Color(0xFF0066CC),
+                            ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter your password';
                               }
                               return null;
                             },
+                            onSubmitted: (_) => _login(),
                           ),
                           const SizedBox(height: 28),
 
@@ -336,7 +305,7 @@ class _LoginPageState extends State<LoginPage> {
                               color: Color(0xFF0066CC),
                             ),
                             label: const Text(
-                              'Admin Login (Supabase)',
+                              '',
                               style: TextStyle(
                                 color: Color(0xFF0066CC),
                                 fontWeight: FontWeight.bold,

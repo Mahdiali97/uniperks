@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:uniperks/auth/login_page.dart';
-import 'package:uniperks/pages/product_catalog_page.dart';
+import 'package:uniperks/pages/animated_product_catalog_page.dart';
 import 'package:uniperks/pages/cart_page.dart';
 import 'package:uniperks/pages/quiz_page.dart';
 import 'package:uniperks/pages/voucher_page.dart';
+import 'package:uniperks/pages/profile_page.dart';
 import 'package:uniperks/services/cart_service.dart';
 import 'package:uniperks/services/user_coins_service.dart';
 import 'package:uniperks/services/product_service.dart';
@@ -525,7 +526,7 @@ class _UserDashboardState extends State<UserDashboard> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '\$${product.discountedPrice.toStringAsFixed(2)}',
+                        '\RM${product.discountedPrice.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -535,7 +536,7 @@ class _UserDashboardState extends State<UserDashboard> {
                       ),
                       if (product.discount > 0)
                         Text(
-                          '\$${product.price.toStringAsFixed(2)}',
+                          '\RM${product.price.toStringAsFixed(2)}',
                           style: TextStyle(
                             fontSize: 12,
                             decoration: TextDecoration.lineThrough,
@@ -560,7 +561,7 @@ class _UserDashboardState extends State<UserDashboard> {
         key: ValueKey('home-${_reloadCounters[0]}'),
         child: _buildHomePage(),
       ), // Index 0 - Home
-      ProductCatalogPage(
+      AnimatedProductCatalogPage(
         key: ValueKey('catalog-${_reloadCounters[1]}'),
         username: widget.username,
       ), // Index 1 - Shop
@@ -699,10 +700,49 @@ class _UserDashboardState extends State<UserDashboard> {
                 ),
             ],
           ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () => _logout(context),
-            tooltip: 'Logout',
+          // Profile icon
+          PopupMenuButton<String>(
+            icon: const Icon(
+              Icons.account_circle,
+              color: Colors.white,
+              size: 32,
+            ),
+            tooltip: 'Profile Menu',
+            onSelected: (value) {
+              if (value == 'profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ProfilePage(username: widget.username),
+                  ),
+                );
+              } else if (value == 'logout') {
+                _logout(context);
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person, color: Color(0xFF0066CC)),
+                    SizedBox(width: 12),
+                    Text('View Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red),
+                    SizedBox(width: 12),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

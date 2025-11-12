@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/cart_item.dart';
 import '../models/product.dart';
+import '../models/redeemed_voucher.dart';
 import 'product_service.dart';
 
 class CartService {
@@ -41,6 +42,36 @@ class CartService {
     }
   }
 
+  // Get applied voucher for cart (cart-level, not per item)
+  static Future<Map<String, dynamic>?> getCartVoucher(String username) async {
+    try {
+      final cartData = await _supabase
+          .from(_tableName)
+          .select()
+          .eq('username', username)
+          .maybeSingle();
+
+      if (cartData != null) {
+        final voucherId = cartData['applied_voucher_id'] as int?;
+        final voucherTitle = cartData['applied_voucher_title'] as String?;
+        final voucherDiscount = cartData['applied_voucher_discount'] as int?;
+
+        if (voucherId != null && voucherTitle != null) {
+          return {
+            'voucher_id': voucherId,
+            'voucher_title': voucherTitle,
+            'voucher_discount': voucherDiscount,
+          };
+        }
+      }
+
+      return null;
+    } catch (e) {
+      print('Get Cart Voucher Error: $e');
+      return null;
+    }
+  }
+
   // Add product to cart
   static Future<void> addToCart(
     String username,
@@ -61,7 +92,7 @@ class CartService {
           cartData['items'] as List? ?? [],
         );
 
-        // Check if product already in cart
+        // Check if product already in cart and merge quantities
         bool found = false;
         for (int i = 0; i < items.length; i++) {
           if (items[i]['product_id'] == product.id) {
@@ -107,6 +138,16 @@ class CartService {
     } catch (e) {
       print('Add To Cart Error: $e');
     }
+  }
+
+  // Simple heuristic if discount percentage isn't stored; ideally fetch by voucher id from vouchers table
+  static int? _inferVoucherDiscountFromTitle(String title) {
+    final regex = RegExp(r'(\d{1,2})%');
+    final match = regex.firstMatch(title);
+    if (match != null) {
+      return int.tryParse(match.group(1)!);
+    }
+    return null;
   }
 
   // Remove product from cart
@@ -232,6 +273,55 @@ class CartService {
       print('Initialized cart for user $username');
     } catch (e) {
       print('Initialize Cart Error: $e');
+    }
+  }
+
+  // Apply a voucher to the entire cart (replaces any existing cart voucher)
+  static Future<void> applyVoucherToCart(
+    String username,
+    RedeemedVoucher redeemedVoucher,
+  ) async {
+    try {
+      final cartData = await _supabase
+          .from(_tableName)
+          .select()
+          .eq('username', username)
+          .maybeSingle();
+
+      if (cartData != null) {
+        await _supabase
+            .from(_tableName)
+            .update({
+              'applied_voucher_id': redeemedVoucher.voucherId,
+              'applied_voucher_title': redeemedVoucher.voucherTitle,
+              'applied_voucher_discount': _inferVoucherDiscountFromTitle(
+                redeemedVoucher.voucherTitle,
+              ),
+            })
+            .eq('username', username);
+
+        print('Applied voucher to cart for user $username');
+      }
+    } catch (e) {
+      print('Apply Voucher To Cart Error: $e');
+    }
+  }
+
+  // Remove the voucher from cart
+  static Future<void> removeVoucherFromCart(String username) async {
+    try {
+      await _supabase
+          .from(_tableName)
+          .update({
+            'applied_voucher_id': null,
+            'applied_voucher_title': null,
+            'applied_voucher_discount': null,
+          })
+          .eq('username', username);
+
+      print('Removed voucher from cart for user $username');
+    } catch (e) {
+      print('Remove Voucher From Cart Error: $e');
     }
   }
 }

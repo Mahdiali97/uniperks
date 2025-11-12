@@ -1,6 +1,7 @@
 // filepath: c:\flutter_project\Final Year Project\uniperks\lib\auth\register_page.dart
 import 'package:flutter/material.dart';
 import 'package:uniperks/services/user_service.dart';
+import 'package:uniperks/widgets/animated_border_textfield.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -99,10 +100,15 @@ class _RegisterPageState extends State<RegisterPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0066CC), Color(0xFF0052A3), Color(0xFF003D7A)],
-            stops: [0.0, 0.5, 1.0],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF0066CC), // Premium Blue
+              Color(0xFF0052A3), // Dark Blue
+              Color(0xFFF0F7FF), // Light Blue-White
+              Color(0xFFFFFFFF), // Pure White
+            ],
+            stops: [0.0, 0.35, 0.7, 1.0],
           ),
         ),
         child: SafeArea(
@@ -199,36 +205,19 @@ class _RegisterPageState extends State<RegisterPage> {
                       key: _formKey,
                       child: Column(
                         children: [
-                          // Username Field
-                          TextFormField(
+                          // Username Field with Animated Border
+                          AnimatedBorderTextField(
                             controller: _usernameController,
-                            decoration: InputDecoration(
-                              labelText: 'Username',
-                              hintText: 'Enter your username',
-                              prefixIcon: const Icon(
-                                Icons.person,
-                                color: Color(0xFF0066CC),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF0066CC),
-                                  width: 2,
-                                ),
-                              ),
-                            ),
+                            hintText: 'Enter your username',
+                            labelText: 'Username',
+                            prefixIcon: Icons.person,
+                            textInputAction: TextInputAction.next,
+                            gradientColors: const [
+                              Color(0xFF0066CC),
+                              Color(0xFF0052A3),
+                              Color(0xFF667EEA),
+                              Color(0xFF0066CC),
+                            ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter a username';
@@ -244,37 +233,20 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Email Field
-                          TextFormField(
+                          // Email Field with Animated Border
+                          AnimatedBorderTextField(
                             controller: _emailController,
+                            hintText: 'Enter your email',
+                            labelText: 'Email',
+                            prefixIcon: Icons.email,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: InputDecoration(
-                              labelText: 'Email',
-                              hintText: 'Enter your email',
-                              prefixIcon: const Icon(
-                                Icons.email,
-                                color: Color(0xFF0066CC),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF0066CC),
-                                  width: 2,
-                                ),
-                              ),
-                            ),
+                            textInputAction: TextInputAction.next,
+                            gradientColors: const [
+                              Color(0xFF0066CC),
+                              Color(0xFF0052A3),
+                              Color(0xFF667EEA),
+                              Color(0xFF0066CC),
+                            ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter your email';
@@ -289,50 +261,28 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Password Field
-                          TextFormField(
+                          // Password Field with Animated Border
+                          AnimatedBorderTextField(
                             controller: _passwordController,
+                            hintText: 'Enter your password',
+                            labelText: 'Password',
+                            prefixIcon: Icons.lock,
+                            suffixIcon: _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            onSuffixIconTap: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
                             obscureText: _obscurePassword,
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              hintText: 'Enter your password',
-                              prefixIcon: const Icon(
-                                Icons.lock,
-                                color: Color(0xFF0066CC),
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                  color: Color(0xFF0066CC),
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF0066CC),
-                                  width: 2,
-                                ),
-                              ),
-                            ),
+                            textInputAction: TextInputAction.next,
+                            gradientColors: const [
+                              Color(0xFF0066CC),
+                              Color(0xFF0052A3),
+                              Color(0xFF667EEA),
+                              Color(0xFF0066CC),
+                            ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter a password';
@@ -345,51 +295,29 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Confirm Password Field
-                          TextFormField(
+                          // Confirm Password Field with Animated Border
+                          AnimatedBorderTextField(
                             controller: _confirmPasswordController,
+                            hintText: 'Confirm your password',
+                            labelText: 'Confirm Password',
+                            prefixIcon: Icons.lock_outline,
+                            suffixIcon: _obscureConfirmPassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            onSuffixIconTap: () {
+                              setState(() {
+                                _obscureConfirmPassword =
+                                    !_obscureConfirmPassword;
+                              });
+                            },
                             obscureText: _obscureConfirmPassword,
-                            decoration: InputDecoration(
-                              labelText: 'Confirm Password',
-                              hintText: 'Confirm your password',
-                              prefixIcon: const Icon(
-                                Icons.lock_outline,
-                                color: Color(0xFF0066CC),
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscureConfirmPassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                  color: Color(0xFF0066CC),
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscureConfirmPassword =
-                                        !_obscureConfirmPassword;
-                                  });
-                                },
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF0066CC),
-                                  width: 2,
-                                ),
-                              ),
-                            ),
+                            textInputAction: TextInputAction.done,
+                            gradientColors: const [
+                              Color(0xFF0066CC),
+                              Color(0xFF0052A3),
+                              Color(0xFF667EEA),
+                              Color(0xFF0066CC),
+                            ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please confirm your password';
@@ -399,6 +327,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               }
                               return null;
                             },
+                            onSubmitted: (_) => _register(),
                           ),
                           const SizedBox(height: 28),
 

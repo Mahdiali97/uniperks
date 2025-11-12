@@ -333,25 +333,65 @@ class _VoucherPageState extends State<VoucherPage> {
                       ],
                     ),
                   ),
-                  ElevatedButton(
-                    onPressed: canAfford ? () => _redeemVoucher(voucher) : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF0066CC),
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey[300],
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
+                  if (voucher.maxClaims == null)
+                    ElevatedButton(
+                      onPressed: canAfford
+                          ? () => _redeemVoucher(voucher)
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF0066CC),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey[300],
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                      child: Text(
+                        canAfford ? 'Redeem' : 'Insufficient Coins',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
+                    )
+                  else
+                    FutureBuilder<int>(
+                      future: VoucherService.getRedemptionCount(voucher.id),
+                      builder: (context, snap) {
+                        final claimed = snap.data ?? 0;
+                        final remaining = (voucher.maxClaims! - claimed).clamp(
+                          0,
+                          voucher.maxClaims!,
+                        );
+                        final canRedeem = canAfford && remaining > 0;
+                        return ElevatedButton(
+                          onPressed: canRedeem
+                              ? () => _redeemVoucher(voucher)
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFF0066CC),
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey[300],
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            canRedeem
+                                ? 'Redeem'
+                                : (canAfford
+                                      ? 'Fully Claimed'
+                                      : 'Insufficient Coins'),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      },
                     ),
-                    child: Text(
-                      canAfford ? 'Redeem' : 'Insufficient Coins',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
                 ],
               ),
             ],
@@ -415,6 +455,19 @@ class _VoucherPageState extends State<VoucherPage> {
           ),
         );
       } else {
+        // Provide clearer failure message if max claims reached
+        if (voucher.maxClaims != null) {
+          final claimed = await VoucherService.getRedemptionCount(voucher.id);
+          if (claimed >= (voucher.maxClaims ?? 0)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('This voucher has been fully claimed.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+            return;
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Failed to redeem voucher'),

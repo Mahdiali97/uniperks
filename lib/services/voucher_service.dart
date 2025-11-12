@@ -8,6 +8,10 @@ class VoucherService {
   static const String _vouchersTable = 'vouchers';
   static const String _redeemedTable = 'redeemed_vouchers';
 
+  // Simple in-memory cache for redemption counts
+  static final Map<int, _RedemptionCacheEntry> _redemptionCountCache = {};
+  static const Duration _cacheTTL = Duration(seconds: 15);
+
   // Get all vouchers
   static Future<List<Voucher>> getAllVouchers() async {
     try {
@@ -111,6 +115,25 @@ class VoucherService {
   // Redeem voucher (User action)
   static Future<bool> redeemVoucher(String username, Voucher voucher) async {
     try {
+      // Enforce max claims limit if set
+      if (voucher.maxClaims != null) {
+        // Always use a fresh read here for correctness
+        final existing = await _supabase
+            .from(_redeemedTable)
+            .select('id')
+            .eq('voucher_id', voucher.id);
+        final currentCount = (existing as List).length;
+        if (currentCount >= voucher.maxClaims!) {
+          print('Voucher has reached max claims limit');
+          // Update cache optimistically to reflect fully-claimed state
+          _redemptionCountCache[voucher.id] = _RedemptionCacheEntry(
+            count: currentCount,
+            fetchedAt: DateTime.now(),
+          );
+          return false;
+        }
+      }
+
       // Get user info
       final userData = await _supabase
           .from('users')
@@ -150,6 +173,15 @@ class VoucherService {
 
       // Deduct coins
       await UserCoinsService.spendCoins(username, voucher.coinsRequired);
+
+      // Update cache to reflect new redemption
+      final existing = _redemptionCountCache[voucher.id];
+      if (existing != null) {
+        _redemptionCountCache[voucher.id] = _RedemptionCacheEntry(
+          count: existing.count + 1,
+          fetchedAt: DateTime.now(),
+        );
+      }
 
       print('Voucher redeemed successfully');
       return true;
@@ -234,4 +266,36 @@ class VoucherService {
       return 0;
     }
   }
+
+  // Get redemption count for a specific voucher (for maxClaims tracking)
+  static Future<int> getRedemptionCount(int voucherId) async {
+    try {
+      // Serve from cache if fresh
+      final cached = _redemptionCountCache[voucherId];
+      if (cached != null) {
+        final age = DateTime.now().difference(cached.fetchedAt);
+        if (age <= _cacheTTL) return cached.count;
+      }
+
+      final data = await _supabase
+          .from(_redeemedTable)
+          .select('id')
+          .eq('voucher_id', voucherId);
+      final count = (data as List).length;
+      _redemptionCountCache[voucherId] = _RedemptionCacheEntry(
+        count: count,
+        fetchedAt: DateTime.now(),
+      );
+      return count;
+    } catch (e) {
+      print('Get Redemption Count Error: $e');
+      return 0;
+    }
+  }
+}
+
+class _RedemptionCacheEntry {
+  final int count;
+  final DateTime fetchedAt;
+  const _RedemptionCacheEntry({required this.count, required this.fetchedAt});
 }
