@@ -163,6 +163,10 @@ CREATE TABLE user_carts (
   uid text unique not null,
   username text unique not null,
   items jsonb default '[]'::jsonb,
+  -- Cart-level applied voucher (single voucher per cart/purchase)
+  applied_voucher_id bigint,
+  applied_voucher_title text,
+  applied_voucher_discount integer, -- percentage discount
   created_at timestamp default now(),
   updated_at timestamp default now()
 );
@@ -178,6 +182,43 @@ CREATE TABLE daily_quiz_attempts (
   created_at timestamp default now(),
   unique(username, module_id, attempt_date)
 );
+```
+
+### orders
+```sql
+CREATE TABLE orders (
+  id bigint primary key generated always as identity,
+  username text not null,
+  subtotal numeric(10,2) not null default 0,
+  discount_amount numeric(10,2) not null default 0,
+  total_amount numeric(10,2) not null default 0,
+  item_count integer not null default 0,
+  -- Snapshot of cart-level voucher applied at purchase time
+  voucher_id bigint,
+  voucher_title text,
+  voucher_discount integer,
+  status text not null default 'paid',
+  created_at timestamp not null default now()
+);
+
+CREATE INDEX idx_orders_username_created_at ON orders (username, created_at desc);
+```
+
+### order_items
+```sql
+CREATE TABLE order_items (
+  id bigint primary key generated always as identity,
+  order_id bigint not null references orders(id) on delete cascade,
+  product_id bigint,
+  product_name text not null,
+  image_url text,
+  unit_price numeric(10,2) not null,
+  quantity integer not null default 1,
+  line_total numeric(10,2) not null,
+  created_at timestamp not null default now()
+);
+
+CREATE INDEX idx_order_items_order_id ON order_items (order_id);
 ```
 
 ## Quick Fix Checklist

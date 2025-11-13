@@ -22,11 +22,15 @@ class UserService {
         return false;
       }
 
+      // Determine role: 'admin' if username is 'admin', otherwise 'user'
+      final role = username.toLowerCase() == 'admin' ? 'admin' : 'user';
+
       // Insert user into database
       final response = await _supabase.from(_tableName).insert({
         'username': username,
         'email': email,
         'password': password,
+        'role': role,
       }).select();
 
       if (response.isNotEmpty) {
@@ -86,6 +90,27 @@ class UserService {
     } catch (e) {
       print('Authenticate User Error: $e');
       return false;
+    }
+  }
+
+  // Check if user is admin by username
+  static bool isAdminUser(String username) {
+    return username.toLowerCase() == 'admin';
+  }
+
+  // Get user role from database
+  static Future<String?> getUserRole(String username) async {
+    try {
+      final user = await _supabase
+          .from(_tableName)
+          .select('role')
+          .eq('username', username)
+          .maybeSingle();
+
+      return user != null ? user['role'] as String? : null;
+    } catch (e) {
+      print('Get User Role Error: $e');
+      return null;
     }
   }
 
@@ -163,11 +188,6 @@ class UserService {
       final existingUsers = await getAllUsers();
       if (existingUsers.isEmpty) {
         await registerUser('admin', 'admin@uniperks.com', 'admin123');
-        await registerUser(
-          'student1',
-          'student1@university.edu',
-          'password123',
-        );
         await registerUser('testuser', 'test@example.com', 'test123');
       }
     } catch (e) {

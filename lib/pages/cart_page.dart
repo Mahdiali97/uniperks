@@ -4,6 +4,7 @@ import '../services/cart_service.dart';
 import '../services/user_coins_service.dart';
 import '../services/voucher_service.dart';
 import '../widgets/floating_reward_badge.dart';
+import '../services/order_service.dart';
 
 class CartPage extends StatefulWidget {
   final String username;
@@ -19,114 +20,140 @@ class _CartPageState extends State<CartPage> {
 
   @override
   Widget build(BuildContext context) {
-    return FloatingRewardBadgeOverlay(
-      key: _overlayKey,
-      child: FutureBuilder<List<CartItem>>(
-        future: CartService.getCartItems(widget.username),
-        builder: (context, cartSnapshot) {
-          if (cartSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return Scaffold(
+      body: FloatingRewardBadgeOverlay(
+        key: _overlayKey,
+        child: FutureBuilder<List<CartItem>>(
+          future: CartService.getCartItems(widget.username),
+          builder: (context, cartSnapshot) {
+            if (cartSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (cartSnapshot.hasError) {
-            return Center(child: Text('Error: ${cartSnapshot.error}'));
-          }
+            if (cartSnapshot.hasError) {
+              return Center(child: Text('Error: ${cartSnapshot.error}'));
+            }
 
-          final cartItems = cartSnapshot.data ?? [];
+            final cartItems = cartSnapshot.data ?? [];
 
-          return FutureBuilder<Map<String, dynamic>?>(
-            future: CartService.getCartVoucher(widget.username),
-            builder: (context, voucherSnapshot) {
-              if (voucherSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+            return FutureBuilder<Map<String, dynamic>?>(
+              future: CartService.getCartVoucher(widget.username),
+              builder: (context, voucherSnapshot) {
+                if (voucherSnapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-              final cartVoucher = voucherSnapshot.data;
+                final cartVoucher = voucherSnapshot.data;
 
-              if (cartItems.isEmpty) {
-                return RefreshIndicator(
-                  onRefresh: () async => setState(() {}),
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      const SizedBox(height: 120),
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.shopping_cart_outlined,
-                              size: 100,
-                              color: Colors.grey[300],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Your cart is empty',
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Add some products to get started',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: Colors.grey[600]),
-                            ),
-                          ],
+                if (cartItems.isEmpty) {
+                  return RefreshIndicator(
+                    onRefresh: () async => setState(() {}),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 120),
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.shopping_cart_outlined,
+                                size: 100,
+                                color: Colors.grey[300],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Your cart is empty',
+                                style: Theme.of(context).textTheme.headlineSmall
+                                    ?.copyWith(
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Add some products to get started',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final itemsCount = cartItems.fold<int>(
+                  0,
+                  (sum, item) => sum + item.quantity,
+                );
+
+                // Calculate totals (cart-level voucher applied to entire subtotal)
+                final subtotal = cartItems.fold<double>(
+                  0,
+                  (sum, item) => sum + (item.totalPrice),
+                );
+
+                final voucherDiscount =
+                    cartVoucher?['voucher_discount'] as int?;
+                final totalVoucherSavings =
+                    voucherDiscount != null && voucherDiscount > 0
+                    ? subtotal * (voucherDiscount / 100)
+                    : 0.0;
+                final finalTotal = subtotal - totalVoucherSavings;
+
+                return Column(
+                  children: [
+                    // Custom Header
+                    _buildHeader(),
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: () async => setState(() {}),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: cartItems.length,
+                          itemBuilder: (context, index) {
+                            final cartItem = cartItems[index];
+                            return _buildCartItem(cartItem);
+                          },
                         ),
                       ),
-                    ],
-                  ),
-                );
-              }
-
-              final itemsCount = cartItems.fold<int>(
-                0,
-                (sum, item) => sum + item.quantity,
-              );
-
-              // Calculate totals (cart-level voucher applied to entire subtotal)
-              final subtotal = cartItems.fold<double>(
-                0,
-                (sum, item) => sum + (item.totalPrice),
-              );
-
-              final voucherDiscount = cartVoucher?['voucher_discount'] as int?;
-              final totalVoucherSavings =
-                  voucherDiscount != null && voucherDiscount > 0
-                  ? subtotal * (voucherDiscount / 100)
-                  : 0.0;
-              final finalTotal = subtotal - totalVoucherSavings;
-
-              return Column(
-                children: [
-                  Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: () async => setState(() {}),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: cartItems.length,
-                        itemBuilder: (context, index) {
-                          final cartItem = cartItems[index];
-                          return _buildCartItem(cartItem);
-                        },
-                      ),
                     ),
-                  ),
-                  _buildCheckoutSection(
-                    subtotal,
-                    finalTotal,
-                    totalVoucherSavings,
-                    itemsCount,
-                    cartVoucher,
-                  ),
-                ],
-              );
-            },
-          );
-        },
+                    _buildCheckoutSection(
+                      subtotal,
+                      finalTotal,
+                      totalVoucherSavings,
+                      itemsCount,
+                      cartVoucher,
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.only(bottom: 16, top: 40),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0066CC),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+      ),
+      child: const Center(
+        child: Text(
+          'Shopping Cart',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
       ),
     );
   }
@@ -547,13 +574,48 @@ class _CartPageState extends State<CartPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                // Simulate successful purchase
-                final coinsEarned = (totalPrice * 0.1).round();
-                await CartService.clearCart(widget.username);
-                await UserCoinsService.addCoins(
+                // Simulate successful purchase + persist order
+                // Recompute snapshot data for order creation
+                final items = await CartService.getCartItems(widget.username);
+                final cartVoucher = await CartService.getCartVoucher(
                   widget.username,
-                  coinsEarned,
-                ); // 10% cashback in coins
+                );
+
+                // Calculate totals for persistence
+                final subtotal = items.fold<double>(
+                  0,
+                  (s, it) => s + it.totalPrice,
+                );
+                final voucherDiscount =
+                    cartVoucher?['voucher_discount'] as int?;
+                final discountAmount =
+                    voucherDiscount != null && voucherDiscount > 0
+                    ? subtotal * (voucherDiscount / 100)
+                    : 0.0;
+                final finalTotal = subtotal - discountAmount;
+                final itemCount = items.fold<int>(
+                  0,
+                  (s, it) => s + it.quantity,
+                );
+
+                // Create order
+                await OrderService.createOrder(
+                  username: widget.username,
+                  cartItems: items,
+                  subtotal: subtotal,
+                  discountAmount: discountAmount,
+                  totalAmount: finalTotal,
+                  itemCount: itemCount,
+                  voucher: cartVoucher,
+                );
+
+                // Award coins (10% cashback of final total)
+                final coinsEarned = (finalTotal * 0.1).round();
+                await UserCoinsService.addCoins(widget.username, coinsEarned);
+
+                // Clear cart items and remove applied voucher
+                await CartService.clearCart(widget.username);
+                await CartService.removeVoucherFromCart(widget.username);
                 if (!mounted) return;
                 Navigator.pop(context);
                 setState(() {});

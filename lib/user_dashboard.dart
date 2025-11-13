@@ -584,7 +584,7 @@ class _UserDashboardState extends State<UserDashboard> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white,
@@ -592,8 +592,8 @@ class _UserDashboardState extends State<UserDashboard> {
               child: ClipOval(
                 child: Image.asset(
                   'assets/images/logo/UniPerks.png',
-                  width: 40,
-                  height: 40,
+                  width: 50,
+                  height: 50,
                   fit: BoxFit.cover,
                 ),
               ),
@@ -612,6 +612,9 @@ class _UserDashboardState extends State<UserDashboard> {
         backgroundColor: Color(0xFF0066CC),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:uniperks/auth/login_page.dart';
-import 'package:uniperks/auth/admin_login_page.dart';
 import 'package:uniperks/services/authz_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uniperks/services/user_service.dart';
@@ -37,8 +36,14 @@ class _AdminDashboardState extends State<AdminDashboard>
   Future<void> _loadUsers() async {
     try {
       final users = await UserService.getAllUsers();
+      // Filter out admin users (exclude users where role is 'admin')
+      final nonAdminUsers = users.where((user) {
+        final role = user['role'] as String?;
+        return role != 'admin';
+      }).toList();
+
       setState(() {
-        registeredUsers = users;
+        registeredUsers = nonAdminUsers;
         isLoading = false;
       });
     } catch (e) {
@@ -71,26 +76,13 @@ class _AdminDashboardState extends State<AdminDashboard>
     final supa = Supabase.instance.client;
     final isAdminAuthed = supa.auth.currentUser != null;
 
+    // If not authenticated with Supabase, show simplified gate
     if (!isAdminAuthed) {
-      // Gate the admin area until Supabase admin login is completed
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          title: const Text('Admin – Sign in required'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminLoginPage()),
-                );
-              },
-              child: const Text(
-                'Admin Login',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
+          title: const Text('Admin Dashboard'),
+          backgroundColor: const Color(0xFF0066CC),
         ),
         body: Center(
           child: Padding(
@@ -106,24 +98,13 @@ class _AdminDashboardState extends State<AdminDashboard>
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'To manage products, vouchers, and quiz content with RLS enabled, please sign in with your admin account.',
+                  'Please sign in with your admin email and password on the login page.',
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.login),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AdminLoginPage()),
-                    );
-                  },
-                  label: const Text('Go to Admin Login'),
-                ),
-                const SizedBox(height: 12),
                 OutlinedButton(
                   onPressed: () => _logout(context),
-                  child: const Text('Back to App Login'),
+                  child: const Text('Back to Login'),
                 ),
               ],
             ),

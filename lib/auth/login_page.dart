@@ -3,8 +3,8 @@ import 'package:uniperks/auth/register_page.dart';
 import 'package:uniperks/services/user_service.dart';
 import 'package:uniperks/admin_dashboard.dart';
 import 'package:uniperks/user_dashboard.dart';
-import 'package:uniperks/auth/admin_login_page.dart';
 import 'package:uniperks/widgets/animated_border_textfield.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -33,45 +33,85 @@ class _LoginPageState extends State<LoginPage> {
         _isLoading = true;
       });
 
-      // Simulate network delay
-      await Future.delayed(const Duration(seconds: 1));
-
       String username = _usernameController.text.trim();
       String password = _passwordController.text;
 
-      // Check for admin credentials
-      if (username == 'admin' && password == 'admin123') {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const AdminDashboard()),
-          );
+      try {
+        // First, try to authenticate with Supabase (for admin users)
+        // Admin users should use email format
+        if (username.contains('@')) {
+          try {
+            final supa = Supabase.instance.client;
+            final res = await supa.auth.signInWithPassword(
+              email: username,
+              password: password,
+            );
+
+            if (res.session != null && mounted) {
+              // Successfully logged in with Supabase - Admin user
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const AdminDashboard()),
+              );
+              return;
+            }
+          } on AuthException catch (e) {
+            // Supabase auth failed, will try regular user auth below
+            print('Supabase auth failed: ${e.message}');
+          }
         }
-      }
-      // Check regular user credentials
-      else if (await UserService.authenticateUser(username, password)) {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => UserDashboard(username: username),
-            ),
-          );
+
+        // Try regular user authentication from database
+        if (await UserService.authenticateUser(username, password)) {
+          // Check user role
+          final role = await UserService.getUserRole(username);
+
+          if (role == 'admin' || UserService.isAdminUser(username)) {
+            // Admin user from database
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const AdminDashboard()),
+              );
+            }
+          } else {
+            // Regular user - go to user dashboard
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => UserDashboard(username: username),
+                ),
+              );
+            }
+          }
+        } else {
+          // Authentication failed
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Invalid credentials. Please try again.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
-      } else {
+      } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid username or password'),
+            SnackBar(
+              content: Text('Login error: $e'),
               backgroundColor: Colors.red,
             ),
           );
         }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
-
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
@@ -172,11 +212,11 @@ class _LoginPageState extends State<LoginPage> {
                       key: _formKey,
                       child: Column(
                         children: [
-                          // Username Field with Animated Border
+                          // Username/Email Field with Animated Border
                           AnimatedBorderTextField(
                             controller: _usernameController,
-                            hintText: 'Enter your username',
-                            labelText: 'Username',
+                            hintText: 'Username or email',
+                            labelText: 'Username / Email',
                             prefixIcon: Icons.person,
                             keyboardType: TextInputType.text,
                             textInputAction: TextInputAction.next,
@@ -188,7 +228,7 @@ class _LoginPageState extends State<LoginPage> {
                             ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter your username';
+                                return 'Please enter your username or email';
                               }
                               return null;
                             },
@@ -286,32 +326,6 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
 
-                          // Admin Login Link
-                          const SizedBox(height: 12),
-                          TextButton.icon(
-                            onPressed: _isLoading
-                                ? null
-                                : () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const AdminLoginPage(),
-                                      ),
-                                    );
-                                  },
-                            icon: const Icon(
-                              Icons.admin_panel_settings,
-                              color: Color(0xFF0066CC),
-                            ),
-                            label: const Text(
-                              '',
-                              style: TextStyle(
-                                color: Color(0xFF0066CC),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
                           const SizedBox(height: 16),
 
                           // Demo Credentials

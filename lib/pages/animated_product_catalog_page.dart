@@ -5,6 +5,7 @@ import '../services/product_service.dart';
 import '../services/cart_service.dart';
 import '../widgets/animated_border_textfield.dart';
 import 'product_detail_page.dart';
+import 'cart_page.dart';
 
 /// Animated Product Catalog Page
 /// Features smooth animations, hero transitions, and modern UI
@@ -320,8 +321,14 @@ class _AnimatedProductCatalogPageState extends State<AnimatedProductCatalogPage>
                 child: FloatingCartBar(
                   itemCount: _cartItemCount,
                   onTap: () {
-                    // Navigate to cart or show cart bottom sheet
-                    Navigator.pushNamed(context, '/cart').then((_) {
+                    // Navigate to cart
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            CartPage(username: widget.username),
+                      ),
+                    ).then((_) {
                       _updateCartCount();
                     });
                   },
