@@ -5,7 +5,6 @@ import '../services/product_service.dart';
 import '../services/cart_service.dart';
 import '../widgets/animated_border_textfield.dart';
 import 'product_detail_page.dart';
-import 'cart_page.dart';
 
 /// Animated Product Catalog Page
 /// Features smooth animations, hero transitions, and modern UI
@@ -321,16 +320,8 @@ class _AnimatedProductCatalogPageState extends State<AnimatedProductCatalogPage>
                 child: FloatingCartBar(
                   itemCount: _cartItemCount,
                   onTap: () {
-                    // Navigate to cart
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            CartPage(username: widget.username),
-                      ),
-                    ).then((_) {
-                      _updateCartCount();
-                    });
+                    // The bottom navigation bar will handle switching to Cart tab
+                    // No navigation needed - user can tap Cart in bottom nav
                   },
                 ),
               ),
@@ -774,73 +765,47 @@ class FloatingCartBar extends StatelessWidget {
       ),
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.shopping_cart,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$itemCount ${itemCount == 1 ? 'Item' : 'Items'}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'in your cart',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
+                child: const Center(
+                  child: Icon(
+                    Icons.shopping_cart,
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'View Cart',
-                    style: TextStyle(
-                      color: Color(0xFF0066CC),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    size: 20,
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$itemCount ${itemCount == 1 ? 'Item' : 'Items'}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'in your cart',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

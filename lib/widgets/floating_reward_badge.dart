@@ -38,8 +38,7 @@ enum RewardBadgeSize {
 class FloatingRewardBadgeOverlay extends StatefulWidget {
   final Widget child;
 
-  const FloatingRewardBadgeOverlay({Key? key, required this.child})
-    : super(key: key);
+  const FloatingRewardBadgeOverlay({super.key, required this.child});
 
   @override
   State<FloatingRewardBadgeOverlay> createState() =>

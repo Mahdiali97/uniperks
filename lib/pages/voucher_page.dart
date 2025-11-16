@@ -357,13 +357,18 @@ class _VoucherPageState extends State<VoucherPage> {
                     )
                   else
                     FutureBuilder<int>(
-                      future: VoucherService.getRedemptionCount(voucher.id),
+                      future:
+                          VoucherService.getRedeemedVouchers(
+                            widget.username,
+                          ).then(
+                            (redeemedList) => redeemedList
+                                .where((rv) => rv.voucherId == voucher.id)
+                                .length,
+                          ),
                       builder: (context, snap) {
-                        final claimed = snap.data ?? 0;
-                        final remaining = (voucher.maxClaims! - claimed).clamp(
-                          0,
-                          voucher.maxClaims!,
-                        );
+                        final userClaims = snap.data ?? 0;
+                        final remaining = (voucher.maxClaims! - userClaims)
+                            .clamp(0, voucher.maxClaims!);
                         final canRedeem = canAfford && remaining > 0;
                         return ElevatedButton(
                           onPressed: canRedeem
@@ -385,7 +390,7 @@ class _VoucherPageState extends State<VoucherPage> {
                             canRedeem
                                 ? 'Redeem'
                                 : (canAfford
-                                      ? 'Fully Claimed'
+                                      ? 'Already Claimed (Max: ${voucher.maxClaims})'
                                       : 'Insufficient Coins'),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
@@ -457,11 +462,18 @@ class _VoucherPageState extends State<VoucherPage> {
       } else {
         // Provide clearer failure message if max claims reached
         if (voucher.maxClaims != null) {
-          final claimed = await VoucherService.getRedemptionCount(voucher.id);
-          if (claimed >= (voucher.maxClaims ?? 0)) {
+          final redeemedList = await VoucherService.getRedeemedVouchers(
+            widget.username,
+          );
+          final userClaims = redeemedList
+              .where((rv) => rv.voucherId == voucher.id)
+              .length;
+          if (userClaims >= (voucher.maxClaims ?? 0)) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('This voucher has been fully claimed.'),
+              SnackBar(
+                content: Text(
+                  'You have already claimed this voucher ${voucher.maxClaims} time(s).',
+                ),
                 backgroundColor: Colors.orange,
               ),
             );

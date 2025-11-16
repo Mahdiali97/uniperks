@@ -138,27 +138,50 @@ class _QuizPageState extends State<QuizPage> {
                               const SizedBox(height: 12),
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
-                                child: LinearProgressIndicator(
-                                  value: modules.isNotEmpty
-                                      ? todayCompletedCount / modules.length
-                                      : 0,
-                                  minHeight: 8,
-                                  backgroundColor: Colors.white.withOpacity(
-                                    0.3,
+                                child: TweenAnimationBuilder<double>(
+                                  tween: Tween<double>(
+                                    begin: 0,
+                                    end: modules.isNotEmpty
+                                        ? todayCompletedCount / modules.length
+                                        : 0,
                                   ),
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
+                                  duration: const Duration(milliseconds: 1500),
+                                  curve: Curves.easeInOutCubic,
+                                  builder: (context, value, child) {
+                                    return LinearProgressIndicator(
+                                      value: value,
+                                      minHeight: 8,
+                                      backgroundColor: Colors.white.withOpacity(
+                                        0.3,
                                       ),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Color.lerp(
+                                          Colors.white.withOpacity(0.8),
+                                          Colors.white,
+                                          value,
+                                        )!,
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Text(
-                                '$todayCompletedCount of ${modules.length} completed',
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 13,
+                              TweenAnimationBuilder<int>(
+                                tween: IntTween(
+                                  begin: 0,
+                                  end: todayCompletedCount,
                                 ),
+                                duration: const Duration(milliseconds: 1500),
+                                curve: Curves.easeInOutCubic,
+                                builder: (context, value, child) {
+                                  return Text(
+                                    '$value of ${modules.length} completed',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),

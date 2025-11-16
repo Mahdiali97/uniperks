@@ -5,18 +5,53 @@ class ProductService {
   static final _supabase = Supabase.instance.client;
   static const String _tableName = 'products';
 
-  // Get all products from database
+  // Cache storage with timestamps
+  static List<Product>? _productsCache;
+  static DateTime? _productsCacheTime;
+  static final Map<String, List<Product>> _categoryCache = {};
+  static final Map<String, DateTime> _categoryCacheTime = {};
+
+  // Cache validity duration (5 minutes)
+  static const Duration _cacheDuration = Duration(minutes: 5);
+
+  static bool _isCacheValid(DateTime? cacheTime) {
+    if (cacheTime == null) return false;
+    return DateTime.now().difference(cacheTime) < _cacheDuration;
+  }
+
+  static void clearCache() {
+    _productsCache = null;
+    _productsCacheTime = null;
+    _categoryCache.clear();
+    _categoryCacheTime.clear();
+  }
+
+  // Get all products from database with caching
   static Future<List<Product>> getAllProducts() async {
     try {
+      // Return cached products if still valid
+      if (_isCacheValid(_productsCacheTime) && _productsCache != null) {
+        return _productsCache!;
+      }
+
       final data = await _supabase
           .from(_tableName)
           .select()
           .order('created_at', ascending: false);
 
-      return (data as List).map((json) => Product.fromJson(json)).toList();
+      final products = (data as List)
+          .map((json) => Product.fromJson(json))
+          .toList();
+
+      // Update cache
+      _productsCache = products;
+      _productsCacheTime = DateTime.now();
+
+      return products;
     } catch (e) {
       print('Get All Products Error: $e');
-      return [];
+      // Return cached products even if expired to handle offline scenarios
+      return _productsCache ?? [];
     }
   }
 
@@ -36,11 +71,17 @@ class ProductService {
     }
   }
 
-  // Get products by category
+  // Get products by category with caching
   static Future<List<Product>> getProductsByCategory(String category) async {
     try {
       if (category == 'All') {
         return getAllProducts();
+      }
+
+      // Return cached category products if still valid
+      if (_isCacheValid(_categoryCacheTime[category]) &&
+          _categoryCache[category] != null) {
+        return _categoryCache[category]!;
       }
 
       final data = await _supabase
@@ -49,10 +90,19 @@ class ProductService {
           .eq('category', category)
           .order('created_at', ascending: false);
 
-      return (data as List).map((json) => Product.fromJson(json)).toList();
+      final products = (data as List)
+          .map((json) => Product.fromJson(json))
+          .toList();
+
+      // Update cache for this category
+      _categoryCache[category] = products;
+      _categoryCacheTime[category] = DateTime.now();
+
+      return products;
     } catch (e) {
       print('Get Products By Category Error: $e');
-      return [];
+      // Return cached products even if expired
+      return _categoryCache[category] ?? [];
     }
   }
 
@@ -80,6 +130,7 @@ class ProductService {
   static Future<bool> addProduct(Product product) async {
     try {
       await _supabase.from(_tableName).insert(product.toJson());
+      clearCache(); // Clear cache so new product appears immediately
       return true;
     } catch (e) {
       print('Add Product Error: $e');
@@ -94,6 +145,7 @@ class ProductService {
           .from(_tableName)
           .update(product.toJsonForUpdate())
           .eq('id', id);
+      clearCache(); // Clear cache so changes appear immediately
       return true;
     } catch (e) {
       print('Update Product Error: $e');
@@ -105,6 +157,7 @@ class ProductService {
   static Future<bool> deleteProduct(int id) async {
     try {
       await _supabase.from(_tableName).delete().eq('id', id);
+      clearCache(); // Clear cache so deletion appears immediately
       return true;
     } catch (e) {
       print('Delete Product Error: $e');

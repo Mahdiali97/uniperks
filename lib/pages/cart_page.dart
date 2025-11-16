@@ -3,8 +3,10 @@ import '../models/cart_item.dart';
 import '../services/cart_service.dart';
 import '../services/user_coins_service.dart';
 import '../services/voucher_service.dart';
+import '../models/voucher.dart';
 import '../widgets/floating_reward_badge.dart';
 import '../services/order_service.dart';
+import 'payment_page.dart';
 
 class CartPage extends StatefulWidget {
   final String username;
@@ -85,50 +87,108 @@ class _CartPageState extends State<CartPage> {
                   );
                 }
 
+                // Base totals
                 final itemsCount = cartItems.fold<int>(
                   0,
                   (sum, item) => sum + item.quantity,
                 );
-
-                // Calculate totals (cart-level voucher applied to entire subtotal)
                 final subtotal = cartItems.fold<double>(
                   0,
                   (sum, item) => sum + (item.totalPrice),
                 );
 
-                final voucherDiscount =
-                    cartVoucher?['voucher_discount'] as int?;
-                final totalVoucherSavings =
-                    voucherDiscount != null && voucherDiscount > 0
-                    ? subtotal * (voucherDiscount / 100)
-                    : 0.0;
-                final finalTotal = subtotal - totalVoucherSavings;
-
-                return Column(
-                  children: [
-                    // Custom Header
-                    _buildHeader(),
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: () async => setState(() {}),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: cartItems.length,
-                          itemBuilder: (context, index) {
-                            final cartItem = cartItems[index];
-                            return _buildCartItem(cartItem);
-                          },
+                // If no voucher applied, render with no discount
+                if (cartVoucher == null) {
+                  return Column(
+                    children: [
+                      _buildHeader(),
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: () async => setState(() {}),
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: cartItems.length,
+                            itemBuilder: (context, index) {
+                              final cartItem = cartItems[index];
+                              return _buildCartItem(cartItem);
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                    _buildCheckoutSection(
-                      subtotal,
-                      finalTotal,
-                      totalVoucherSavings,
-                      itemsCount,
-                      cartVoucher,
-                    ),
-                  ],
+                      _buildCheckoutSection(
+                        subtotal,
+                        subtotal,
+                        0.0,
+                        itemsCount,
+                        null,
+                      ),
+                    ],
+                  );
+                }
+
+                // Voucher exists: fetch voucher details (category) and compute correctly
+                final int voucherId = cartVoucher['voucher_id'] as int;
+                return FutureBuilder<Voucher?>(
+                  future: VoucherService.getVoucher(voucherId),
+                  builder: (context, snapshotVoucher) {
+                    if (snapshotVoucher.connectionState ==
+                        ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final voucher = snapshotVoucher.data;
+                    final String? voucherCategory = voucher?.category;
+
+                    final double categorySubtotal = voucherCategory == null
+                        ? subtotal
+                        : cartItems.fold<double>(
+                            0,
+                            (sum, item) =>
+                                sum +
+                                (item.product.category == voucherCategory
+                                    ? item.totalPrice
+                                    : 0),
+                          );
+
+                    final voucherDiscount =
+                        cartVoucher['voucher_discount'] as int?;
+                    final totalVoucherSavings =
+                        voucherDiscount != null && voucherDiscount > 0
+                        ? categorySubtotal * (voucherDiscount / 100)
+                        : 0.0;
+                    final finalTotal = subtotal - totalVoucherSavings;
+
+                    final displayVoucher = {
+                      ...cartVoucher,
+                      'voucher_category': voucherCategory ?? 'All Categories',
+                    };
+
+                    return Column(
+                      children: [
+                        _buildHeader(),
+                        Expanded(
+                          child: RefreshIndicator(
+                            onRefresh: () async => setState(() {}),
+                            child: ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: cartItems.length,
+                              itemBuilder: (context, index) {
+                                final cartItem = cartItems[index];
+                                return _buildCartItem(cartItem);
+                              },
+                            ),
+                          ),
+                        ),
+                        _buildCheckoutSection(
+                          subtotal,
+                          finalTotal,
+                          totalVoucherSavings,
+                          itemsCount,
+                          displayVoucher,
+                        ),
+                      ],
+                    );
+                  },
                 );
               },
             );
@@ -140,18 +200,15 @@ class _CartPageState extends State<CartPage> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.only(bottom: 16, top: 40),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0066CC),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-      ),
+      padding: const EdgeInsets.only(bottom: 16, top: 16),
+      decoration: const BoxDecoration(color: Colors.transparent),
       child: const Center(
         child: Text(
           'Shopping Cart',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: Colors.black,
           ),
         ),
       ),
@@ -425,13 +482,18 @@ class _CartPageState extends State<CartPage> {
                             ],
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            '${cartVoucher['voucher_discount']}% off',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.green,
+                          if (cartVoucher['voucher_discount'] != null)
+                            Text(
+                              '${cartVoucher['voucher_discount']}% off • '
+                              '${cartVoucher['voucher_category'] ?? 'All Categories'}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.green,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -550,106 +612,107 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  void _proceedToCheckout(double totalPrice) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Checkout'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Total Amount: RM${totalPrice.toStringAsFixed(2)}'),
-              const SizedBox(height: 8),
-              const Text(
-                'This is a demo checkout. In a real app, you would integrate with a payment gateway.',
+  void _proceedToCheckout(double totalPrice) async {
+    // Navigate to payment page
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaymentPage(
+          amount: totalPrice,
+          username: widget.username,
+          onPaymentSuccess: () async {
+            // Payment successful - complete the order
+            Navigator.pop(context); // Close payment page
+
+            // Recompute snapshot data for order creation
+            final items = await CartService.getCartItems(widget.username);
+            final cartVoucher = await CartService.getCartVoucher(
+              widget.username,
+            );
+
+            // Calculate totals for persistence (respect category-specific vouchers)
+            final subtotal = items.fold<double>(
+              0,
+              (s, it) => s + it.totalPrice,
+            );
+
+            double discountAmount = 0.0;
+            if (cartVoucher != null && cartVoucher['voucher_id'] != null) {
+              final voucher = await VoucherService.getVoucher(
+                cartVoucher['voucher_id'] as int,
+              );
+              final String? voucherCategory = voucher?.category;
+              final voucherDiscount = cartVoucher['voucher_discount'] as int?;
+              if (voucherDiscount != null && voucherDiscount > 0) {
+                final categorySubtotal = voucherCategory == null
+                    ? subtotal
+                    : items.fold<double>(
+                        0,
+                        (sum, it) =>
+                            sum +
+                            (it.product.category == voucherCategory
+                                ? it.totalPrice
+                                : 0),
+                      );
+                discountAmount = categorySubtotal * (voucherDiscount / 100);
+              }
+            }
+
+            final finalTotal = subtotal - discountAmount;
+            final itemCount = items.fold<int>(0, (s, it) => s + it.quantity);
+
+            // Create order
+            await OrderService.createOrder(
+              username: widget.username,
+              cartItems: items,
+              subtotal: subtotal,
+              discountAmount: discountAmount,
+              totalAmount: finalTotal,
+              itemCount: itemCount,
+              voucher: cartVoucher,
+            );
+
+            // Award coins (10% cashback of final total)
+            final coinsEarned = (finalTotal * 0.1).round();
+            await UserCoinsService.addCoins(widget.username, coinsEarned);
+
+            // Clear cart items and remove applied voucher
+            await CartService.clearCart(widget.username);
+            await CartService.removeVoucherFromCart(widget.username);
+            if (!mounted) return;
+            setState(() {});
+
+            // Show floating reward badge for cashback
+            _overlayKey.currentState?.showRewardBadge(
+              RewardBadgeConfig(
+                icon: Icons.card_giftcard,
+                label: '🎉 Cashback!\n+$coinsEarned coins',
+                mainColor: Colors.green,
+                accentColor: Colors.lightGreen,
+                size: RewardBadgeSize.large,
+                sparkleCount: 15,
+                displayDuration: const Duration(milliseconds: 2500),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                // Simulate successful purchase + persist order
-                // Recompute snapshot data for order creation
-                final items = await CartService.getCartItems(widget.username);
-                final cartVoucher = await CartService.getCartVoucher(
-                  widget.username,
-                );
+            );
 
-                // Calculate totals for persistence
-                final subtotal = items.fold<double>(
-                  0,
-                  (s, it) => s + it.totalPrice,
-                );
-                final voucherDiscount =
-                    cartVoucher?['voucher_discount'] as int?;
-                final discountAmount =
-                    voucherDiscount != null && voucherDiscount > 0
-                    ? subtotal * (voucherDiscount / 100)
-                    : 0.0;
-                final finalTotal = subtotal - discountAmount;
-                final itemCount = items.fold<int>(
-                  0,
-                  (s, it) => s + it.quantity,
-                );
-
-                // Create order
-                await OrderService.createOrder(
-                  username: widget.username,
-                  cartItems: items,
-                  subtotal: subtotal,
-                  discountAmount: discountAmount,
-                  totalAmount: finalTotal,
-                  itemCount: itemCount,
-                  voucher: cartVoucher,
-                );
-
-                // Award coins (10% cashback of final total)
-                final coinsEarned = (finalTotal * 0.1).round();
-                await UserCoinsService.addCoins(widget.username, coinsEarned);
-
-                // Clear cart items and remove applied voucher
-                await CartService.clearCart(widget.username);
-                await CartService.removeVoucherFromCart(widget.username);
-                if (!mounted) return;
-                Navigator.pop(context);
-                setState(() {});
-
-                // Show floating reward badge for cashback
-                _overlayKey.currentState?.showRewardBadge(
-                  RewardBadgeConfig(
-                    icon: Icons.card_giftcard,
-                    label: '🎉 Cashback!\n+$coinsEarned coins',
-                    mainColor: Colors.green,
-                    accentColor: Colors.lightGreen,
-                    size: RewardBadgeSize.large,
-                    sparkleCount: 15,
-                    displayDuration: const Duration(milliseconds: 2500),
-                  ),
-                );
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Purchase successful! You earned $coinsEarned coins!',
-                    ),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF0066CC),
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Purchase successful! You earned $coinsEarned coins!',
+                ),
+                backgroundColor: Colors.green,
               ),
-              child: const Text('Complete Purchase'),
-            ),
-          ],
-        );
-      },
+            );
+          },
+          onPaymentCancelled: () {
+            // User cancelled payment
+            Navigator.pop(context);
+          },
+        ),
+      ),
     );
   }
 

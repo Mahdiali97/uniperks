@@ -23,8 +23,11 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    // Initialize default users for testing
-    UserService.initializeDefaultUsers();
+    // Initialize default users in background (non-blocking)
+    // This is low priority and doesn't delay UI rendering
+    UserService.initializeDefaultUsers().catchError((e) {
+      print('Background initialization error: $e');
+    });
   }
 
   void _login() async {

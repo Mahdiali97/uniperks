@@ -308,7 +308,7 @@ class _AdminProductUploadPageState extends State<AdminProductUploadPage> {
               _loadingCategories
                   ? const Center(child: CircularProgressIndicator())
                   : DropdownButtonFormField<String>(
-                      value: _selectedCategory,
+                      initialValue: _selectedCategory,
                       items: _categories
                           .map(
                             (category) => DropdownMenuItem(

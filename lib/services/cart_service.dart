@@ -61,6 +61,7 @@ class CartService {
             'voucher_id': voucherId,
             'voucher_title': voucherTitle,
             'voucher_discount': voucherDiscount,
+            'voucher_category': null, // Will fetch from Voucher table instead
           };
         }
       }
@@ -304,6 +305,28 @@ class CartService {
       }
     } catch (e) {
       print('Apply Voucher To Cart Error: $e');
+    }
+  }
+
+  // Calculate subtotal for items matching a specific category
+  static Future<double> getCategorySubtotal(
+    String username,
+    String category,
+  ) async {
+    try {
+      final cartItems = await getCartItems(username);
+
+      double categoryTotal = 0;
+      for (var item in cartItems) {
+        if (item.product.category == category) {
+          categoryTotal += item.totalPrice;
+        }
+      }
+
+      return categoryTotal;
+    } catch (e) {
+      print('Get Category Subtotal Error: $e');
+      return 0;
     }
   }
 

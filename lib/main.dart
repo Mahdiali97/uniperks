@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uniperks/auth/login_page.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
+import 'config/payment_config.dart';
+import 'package:uniperks/pages/logo_reveal_screen.dart';
 
 const supabaseUrl = 'https://oaxljityjzjylvvmfrta.supabase.co';
 const supabaseKey =
@@ -9,6 +11,25 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
+
+  // Initialize Stripe publishable key with timeout
+  if (!PaymentConfig.publishableKey.contains('XXXXXXXXXXXXXXXXXXXXXXXX')) {
+    try {
+      Stripe.publishableKey = PaymentConfig.publishableKey;
+      await Stripe.instance.applySettings().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          print(
+            '⚠️  Stripe initialization timeout - app will continue without Stripe',
+          );
+        },
+      );
+    } catch (e) {
+      print(
+        '⚠️  Stripe initialization error: $e - app will continue without Stripe',
+      );
+    }
+  }
 
   runApp(const MyApp());
 }
@@ -134,7 +155,7 @@ class MyApp extends StatelessWidget {
           showUnselectedLabels: true,
         ),
       ),
-      home: const LoginPage(),
+      home: const LogoRevealScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

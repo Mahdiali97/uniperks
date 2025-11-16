@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import '../services/user_coins_service.dart';
 import '../services/order_service.dart';
+import '../services/user_service.dart';
 import '../auth/login_page.dart';
 import '../models/order.dart';
 import '../models/order_item.dart';
+import './edit_profile_simple.dart';
+import './privacy_security_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final String username;
 
-  const ProfilePage({Key? key, required this.username}) : super(key: key);
+  const ProfilePage({super.key, required this.username});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -18,6 +21,7 @@ class _ProfilePageState extends State<ProfilePage> {
   int _totalCoins = 0;
   int _totalPurchases = 0;
   bool _isLoading = true;
+  Map<String, dynamic>? _userData;
 
   @override
   void initState() {
@@ -29,9 +33,11 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       final coins = await UserCoinsService.getCoins(widget.username);
       final orders = await OrderService.getOrdersForUser(widget.username);
+      final userData = await UserService.getUserProfile(widget.username);
       setState(() {
         _totalCoins = coins;
         _totalPurchases = orders.length;
+        _userData = userData;
         _isLoading = false;
       });
     } catch (e) {
@@ -121,7 +127,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                             ),
                             const SizedBox(height: 20),
-                            // Profile Avatar
+                            // Profile Avatar (displays URL from user_avatars bucket or fallback)
                             Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
@@ -141,14 +147,27 @@ class _ProfilePageState extends State<ProfilePage> {
                               child: CircleAvatar(
                                 radius: 60,
                                 backgroundColor: Colors.white,
-                                child: Text(
-                                  widget.username[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 48,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0066CC),
-                                  ),
-                                ),
+                                backgroundImage:
+                                    _userData?['avatar_url'] != null &&
+                                        (_userData!['avatar_url'] as String)
+                                            .isNotEmpty
+                                    ? NetworkImage(
+                                        _userData!['avatar_url'] as String,
+                                      )
+                                    : null,
+                                child:
+                                    _userData?['avatar_url'] == null ||
+                                        (_userData!['avatar_url'] as String)
+                                            .isEmpty
+                                    ? Text(
+                                        widget.username[0].toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 48,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0066CC),
+                                        ),
+                                      )
+                                    : null,
                               ),
                             ),
                             const SizedBox(height: 20),
@@ -234,13 +253,20 @@ class _ProfilePageState extends State<ProfilePage> {
                             icon: Icons.person,
                             title: 'Edit Profile',
                             subtitle: 'Update your profile information',
-                            onTap: () {
-                              // TODO: Navigate to edit profile page
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Edit Profile - Coming Soon'),
+                            onTap: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EditProfileSimplePage(
+                                    username: widget.username,
+                                  ),
                                 ),
                               );
+                              if (result == true && mounted) {
+                                setState(() {
+                                  _loadProfileData();
+                                });
+                              }
                             },
                           ),
                           _buildMenuItem(
@@ -276,11 +302,11 @@ class _ProfilePageState extends State<ProfilePage> {
                             title: 'Privacy & Security',
                             subtitle: 'Manage your privacy settings',
                             onTap: () {
-                              // TODO: Navigate to privacy settings
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Privacy & Security - Coming Soon',
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => PrivacySecurityPage(
+                                    username: widget.username,
                                   ),
                                 ),
                               );

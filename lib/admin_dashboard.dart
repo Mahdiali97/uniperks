@@ -1054,7 +1054,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                   children: [
                     // Module Selection
                     DropdownButtonFormField<String>(
-                      value: currentModule,
+                      initialValue: currentModule,
                       decoration: const InputDecoration(
                         labelText: 'Quiz Module',
                         border: OutlineInputBorder(),
@@ -1097,7 +1097,7 @@ class _AdminDashboardState extends State<AdminDashboard>
 
                     // Difficulty Selector
                     DropdownButtonFormField<int>(
-                      value: difficulty,
+                      initialValue: difficulty,
                       decoration: const InputDecoration(
                         labelText: 'Difficulty',
                         border: OutlineInputBorder(),
@@ -1477,7 +1477,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: selectedCategory,
+                      initialValue: selectedCategory,
                       decoration: const InputDecoration(
                         labelText: 'Category',
                         border: OutlineInputBorder(),

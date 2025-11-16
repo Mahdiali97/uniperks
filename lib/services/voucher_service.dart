@@ -115,21 +115,17 @@ class VoucherService {
   // Redeem voucher (User action)
   static Future<bool> redeemVoucher(String username, Voucher voucher) async {
     try {
-      // Enforce max claims limit if set
+      // Enforce max claims limit per user if set
       if (voucher.maxClaims != null) {
-        // Always use a fresh read here for correctness
-        final existing = await _supabase
+        // Check how many times this specific user has claimed this voucher
+        final userClaims = await _supabase
             .from(_redeemedTable)
             .select('id')
-            .eq('voucher_id', voucher.id);
-        final currentCount = (existing as List).length;
-        if (currentCount >= voucher.maxClaims!) {
-          print('Voucher has reached max claims limit');
-          // Update cache optimistically to reflect fully-claimed state
-          _redemptionCountCache[voucher.id] = _RedemptionCacheEntry(
-            count: currentCount,
-            fetchedAt: DateTime.now(),
-          );
+            .eq('voucher_id', voucher.id)
+            .eq('username', username);
+        final userClaimCount = (userClaims as List).length;
+        if (userClaimCount >= voucher.maxClaims!) {
+          print('User has reached max claims limit for this voucher');
           return false;
         }
       }

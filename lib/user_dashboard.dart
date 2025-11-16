@@ -26,18 +26,27 @@ class _UserDashboardState extends State<UserDashboard> {
   late Future<int> _cartFuture;
   // Reload counters to force remount of each tab when refreshed
   final List<int> _reloadCounters = [0, 0, 0, 0, 0];
+  bool _coinsCartLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _refreshCoinsAndCart();
+    // Lazy load coins and cart data only on first access
+    // This speeds up initial dashboard render
   }
 
   void _refreshCoinsAndCart() {
     setState(() {
       _coinsFuture = UserCoinsService.getCoins(widget.username);
       _cartFuture = CartService.getTotalItems(widget.username);
+      _coinsCartLoaded = true;
     });
+  }
+
+  void _ensureCoinsCartLoaded() {
+    if (!_coinsCartLoaded) {
+      _refreshCoinsAndCart();
+    }
   }
 
   // Refresh only the currently visible page and update header counters
@@ -62,6 +71,9 @@ class _UserDashboardState extends State<UserDashboard> {
   }
 
   Widget _buildHomePage() {
+    // Lazy-load coins and cart on first access to home page
+    _ensureCoinsCartLoaded();
+
     return FutureBuilder<List<Product>>(
       future: _getFilteredProducts(),
       builder: (context, snapshot) {
@@ -526,7 +538,7 @@ class _UserDashboardState extends State<UserDashboard> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '\RM${product.discountedPrice.toStringAsFixed(2)}',
+                        'RM${product.discountedPrice.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -536,7 +548,7 @@ class _UserDashboardState extends State<UserDashboard> {
                       ),
                       if (product.discount > 0)
                         Text(
-                          '\RM${product.price.toStringAsFixed(2)}',
+                          'RM${product.price.toStringAsFixed(2)}',
                           style: TextStyle(
                             fontSize: 12,
                             decoration: TextDecoration.lineThrough,
@@ -584,21 +596,21 @@ class _UserDashboardState extends State<UserDashboard> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(2),
+              padding: const EdgeInsets.all(1),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white,
               ),
               child: ClipOval(
                 child: Image.asset(
-                  'assets/images/logo/UniPerks.png',
-                  width: 50,
-                  height: 50,
+                  'assets/images/logo/UniPerks_Home.png',
+                  width: 40,
+                  height: 40,
                   fit: BoxFit.cover,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             const Text(
               'UniPerks',
               style: TextStyle(
@@ -620,43 +632,6 @@ class _UserDashboardState extends State<UserDashboard> {
             icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Refresh',
             onPressed: _reloadCurrentPage,
-          ),
-          // Coins display with FutureBuilder
-          FutureBuilder<int>(
-            future: _coinsFuture,
-            builder: (context, snapshot) {
-              final coins = snapshot.data ?? 0;
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                margin: const EdgeInsets.only(right: 16),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.monetization_on,
-                      color: Colors.amber,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '$coins',
-                      style: const TextStyle(
-                        color: Colors.amber,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
           ),
           // Cart badge
           Stack(
