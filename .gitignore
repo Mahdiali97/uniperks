@@ -43,3 +43,24 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secret keys and sensitive configuration
+**/payment_config.dart
+**/.env
+**/.env.*
+**/secrets.json
+**/secrets.yaml
+**/google-services.json
+**/GoogleService-Info.plist
+android/key.properties
+android/app/key.jks
+android/app/*.keystore
+ios/Runner/GoogleService-Info.plist
+
+# Stripe keys
+**/stripe_keys.dart
+**/stripe_config.dart
+
+# Supabase Edge Function secrets
+supabase/.temp/
+supabase/.branches/
