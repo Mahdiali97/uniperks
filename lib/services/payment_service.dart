@@ -69,7 +69,9 @@ class PaymentService {
     // On web, Stripe PaymentSheet is not supported, so we simulate payment
     // For production web, you'd integrate Stripe Elements or redirect to Stripe Checkout
     if (kIsWeb) {
-      print('⚠️  Web platform detected - simulating payment (PaymentSheet not supported on web)');
+      print(
+        '⚠️  Web platform detected - simulating payment (PaymentSheet not supported on web)',
+      );
       await Future.delayed(const Duration(seconds: 2)); // Simulate processing
       return true; // Return success for web testing
     }
