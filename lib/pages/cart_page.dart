@@ -831,6 +831,31 @@ class _CartPageState extends State<CartPage> {
                       color: Colors.green,
                     ),
                     onTap: () async {
+                      // Get cart items to check category matching
+                      final cartItems = await CartService.getCartItems(
+                        widget.username,
+                      );
+
+                      // Check if any item matches voucher category
+                      final hasMatchingCategory = cartItems.any(
+                        (item) => item.product.category == rv.voucherCategory,
+                      );
+
+                      if (!hasMatchingCategory) {
+                        // Show error notification
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'This voucher is for ${rv.voucherCategory} only. You don\'t have items in this category.',
+                            ),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                        return;
+                      }
+
                       // Apply voucher to entire cart
                       await CartService.applyVoucherToCart(widget.username, rv);
                       if (!mounted) return;
