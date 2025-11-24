@@ -60,7 +60,7 @@ class DailyQuizService {
       final now = DateTime.now();
       final tomorrow = DateTime(now.year, now.month, now.day + 1);
       final difference = tomorrow.difference(now);
-
+      
       final hours = difference.inHours;
       final minutes = difference.inMinutes.remainder(60);
 

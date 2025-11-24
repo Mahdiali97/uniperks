@@ -21,6 +21,9 @@ class _EditProfileSimplePageState extends State<EditProfileSimplePage> {
   late TextEditingController _phoneController;
   late TextEditingController _bioController;
   late TextEditingController _passwordController;
+  late TextEditingController _addressController;
+  late TextEditingController _cityController;
+  late TextEditingController _postalController;
 
   String? _avatarUrl; // Display-only avatar URL (no upload on this page)
   bool _isLoading = true;
@@ -35,6 +38,9 @@ class _EditProfileSimplePageState extends State<EditProfileSimplePage> {
     _phoneController = TextEditingController();
     _bioController = TextEditingController();
     _passwordController = TextEditingController();
+    _addressController = TextEditingController();
+    _cityController = TextEditingController();
+    _postalController = TextEditingController();
     _loadUserData();
   }
 
@@ -49,6 +55,9 @@ class _EditProfileSimplePageState extends State<EditProfileSimplePage> {
           _phoneController.text = _user.phone ?? '';
           _bioController.text = _user.bio ?? '';
           _avatarUrl = _user.avatarUrl;
+          _addressController.text = userData['address_line'] ?? '';
+          _cityController.text = userData['city'] ?? '';
+          _postalController.text = userData['postal_code'] ?? '';
           _isLoading = false;
         });
       } else {
@@ -77,6 +86,9 @@ class _EditProfileSimplePageState extends State<EditProfileSimplePage> {
     final newPassword = _passwordController.text.isEmpty
         ? null
         : _passwordController.text;
+    final addressLine = _addressController.text.trim();
+    final city = _cityController.text.trim();
+    final postalCode = _postalController.text.trim();
 
     if (email.isEmpty) {
       ScaffoldMessenger.of(
@@ -97,6 +109,9 @@ class _EditProfileSimplePageState extends State<EditProfileSimplePage> {
         newBio: bio,
         newPassword: newPassword,
         newAvatarUrl: _avatarUrl, // Keep existing avatar reference
+        newAddressLine: addressLine,
+        newCity: city,
+        newPostalCode: postalCode,
       );
 
       if (!mounted) return;
@@ -131,6 +146,9 @@ class _EditProfileSimplePageState extends State<EditProfileSimplePage> {
     _phoneController.dispose();
     _bioController.dispose();
     _passwordController.dispose();
+    _addressController.dispose();
+    _cityController.dispose();
+    _postalController.dispose();
     super.dispose();
   }
 
@@ -191,6 +209,38 @@ class _EditProfileSimplePageState extends State<EditProfileSimplePage> {
                       hint: 'Tell us about yourself',
                       icon: Icons.info,
                       maxLines: 4,
+                    ),
+                    const SizedBox(height: 24),
+
+                    _buildTextField(
+                      controller: _addressController,
+                      label: 'Address Line',
+                      hint: 'Street / Building / Unit',
+                      icon: Icons.home,
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _cityController,
+                            label: 'City',
+                            hint: 'City',
+                            icon: Icons.location_city,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _postalController,
+                            label: 'Postal Code',
+                            hint: 'e.g. 43000',
+                            icon: Icons.local_post_office,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 24),
 

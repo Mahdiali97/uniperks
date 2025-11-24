@@ -538,7 +538,7 @@ class _UserDashboardState extends State<UserDashboard> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'RM${product.discountedPrice.toStringAsFixed(2)}',
+                        '\RM${product.discountedPrice.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -548,7 +548,7 @@ class _UserDashboardState extends State<UserDashboard> {
                       ),
                       if (product.discount > 0)
                         Text(
-                          'RM${product.price.toStringAsFixed(2)}',
+                          '\RM${product.price.toStringAsFixed(2)}',
                           style: TextStyle(
                             fontSize: 12,
                             decoration: TextDecoration.lineThrough,

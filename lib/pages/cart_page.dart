@@ -622,7 +622,7 @@ class _CartPageState extends State<CartPage> {
         builder: (context) => PaymentPage(
           amount: totalPrice,
           username: widget.username,
-          onPaymentSuccess: () async {
+          onPaymentSuccess: (String deliveryMethod) async {
             // Payment successful - complete the order
             Navigator.pop(context); // Close payment page
 
@@ -672,6 +672,7 @@ class _CartPageState extends State<CartPage> {
               totalAmount: finalTotal,
               itemCount: itemCount,
               voucher: cartVoucher,
+              deliveryMethod: deliveryMethod,
             );
 
             // Award coins (10% cashback of final total)

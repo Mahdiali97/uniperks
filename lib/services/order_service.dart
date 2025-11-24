@@ -18,6 +18,7 @@ class OrderService {
     required double totalAmount,
     required int itemCount,
     Map<String, dynamic>? voucher,
+    String? deliveryMethod, // 'self_pickup' or 'delivery'
   }) async {
     try {
       final orderInsert = await _supabase
@@ -31,6 +32,7 @@ class OrderService {
             'voucher_id': voucher?['voucher_id'],
             'voucher_title': voucher?['voucher_title'],
             'voucher_discount': voucher?['voucher_discount'],
+            'delivery_method': deliveryMethod,
             'status': 'paid',
           })
           .select()

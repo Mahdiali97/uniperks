@@ -3,11 +3,18 @@ import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import '../services/payment_service.dart';
 import '../config/payment_config.dart';
+import '../services/user_service.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
+/// Delivery method choices for the checkout flow.
+enum DeliveryMethod { selfPickup, delivery }
 
 class PaymentPage extends StatefulWidget {
   final double amount;
   final String username;
-  final VoidCallback onPaymentSuccess;
+  final Function(String deliveryMethod)
+  onPaymentSuccess; // Pass delivery method
   final VoidCallback onPaymentCancelled;
 
   const PaymentPage({
@@ -45,6 +52,12 @@ class _PaymentPageState extends State<PaymentPage>
   final _cvvController = TextEditingController();
 
   final Color accentColor = const Color(0xFF0066CC);
+  DeliveryMethod? _deliveryMethod; // null until chosen
+  bool _deliveryConfirmed = false; // gates the rest of the UI
+  static const LatLng _pickupCoords = LatLng(
+    3.685897103310494,
+    101.527674133427,
+  );
 
   @override
   void initState() {
@@ -62,6 +75,203 @@ class _PaymentPageState extends State<PaymentPage>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
+    _prefillAddress();
+  }
+
+  void _showDeliveryMethodSheet() {
+    if (_deliveryConfirmed || !mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      barrierColor: Colors.black54,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Choose Delivery Method',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _DeliveryOptionCard(
+                          label: 'Self Pickup',
+                          icon: Icons.store_mall_directory,
+                          selected:
+                              _deliveryMethod == DeliveryMethod.selfPickup,
+                          onTap: () => setModalState(
+                            () => _deliveryMethod = DeliveryMethod.selfPickup,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _DeliveryOptionCard(
+                          label: 'Delivery',
+                          icon: Icons.local_shipping_outlined,
+                          selected: _deliveryMethod == DeliveryMethod.delivery,
+                          onTap: () => setModalState(
+                            () => _deliveryMethod = DeliveryMethod.delivery,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: _deliveryMethod == DeliveryMethod.selfPickup
+                        ? Column(
+                            children: [
+                              const SizedBox(height: 16),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: SizedBox(
+                                  height: 220,
+                                  child: FlutterMap(
+                                    options: MapOptions(
+                                      center: _pickupCoords,
+                                      zoom: 15,
+                                    ),
+                                    children: [
+                                      TileLayer(
+                                        urlTemplate:
+                                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                        userAgentPackageName: 'uniperks',
+                                      ),
+                                      MarkerLayer(
+                                        markers: [
+                                          Marker(
+                                            point: _pickupCoords,
+                                            width: 50,
+                                            height: 50,
+                                            child: const Icon(
+                                              Icons.location_pin,
+                                              size: 44,
+                                              color: Colors.redAccent,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Pickup Location: ${_pickupCoords.latitude.toStringAsFixed(6)}, ${_pickupCoords.longitude.toStringAsFixed(6)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _deliveryMethod == null
+                          ? null
+                          : () {
+                              final goToStep =
+                                  _deliveryMethod == DeliveryMethod.selfPickup
+                                  ? 1
+                                  : 0;
+                              setState(() {
+                                _deliveryConfirmed = true;
+                                _currentStep = goToStep;
+                              });
+                              Navigator.pop(ctx);
+                              // Jump to the appropriate step (skip address for self pickup)
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted && _pageController.hasClients) {
+                                  _pageController.jumpToPage(goToStep);
+                                  _progressController.animateTo(
+                                    goToStep / 2,
+                                    duration: const Duration(milliseconds: 600),
+                                    curve: Curves.easeInOutCubic,
+                                  );
+                                }
+                              });
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0066CC),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        _deliveryMethod == DeliveryMethod.selfPickup
+                            ? 'Confirm Self Pickup'
+                            : 'Continue with Delivery',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _prefillAddress() async {
+    try {
+      final data = await UserService.getUserProfile(widget.username);
+      if (data != null) {
+        final addr = data['address_line'] as String?;
+        final city = data['city'] as String?;
+        final postal = data['postal_code'] as String?;
+        if (addr != null &&
+            addr.isNotEmpty &&
+            _addressController.text.isEmpty) {
+          _addressController.text = addr;
+        }
+        if (city != null && city.isNotEmpty && _cityController.text.isEmpty) {
+          _cityController.text = city;
+        }
+        if (postal != null &&
+            postal.isNotEmpty &&
+            _zipController.text.isEmpty) {
+          _zipController.text = postal;
+        }
+        setState(() {});
+      }
+    } catch (e) {
+      // Silent failure; address optional
+      debugPrint('Prefill address failed: $e');
+    }
   }
 
   @override
@@ -140,7 +350,13 @@ class _PaymentPageState extends State<PaymentPage>
           _successController.forward();
 
           await Future.delayed(const Duration(seconds: 2));
-          if (mounted) widget.onPaymentSuccess();
+          if (mounted) {
+            final deliveryMethodStr =
+                _deliveryMethod == DeliveryMethod.selfPickup
+                ? 'self_pickup'
+                : 'delivery';
+            widget.onPaymentSuccess(deliveryMethodStr);
+          }
         } else {
           setState(() => _isProcessing = false);
           ScaffoldMessenger.of(
@@ -158,6 +374,13 @@ class _PaymentPageState extends State<PaymentPage>
   }
 
   void _previousStep() {
+    // If self pickup is selected and we are at the first actionable step (payment),
+    // don't navigate back to the address step. Optionally, re-open delivery selection.
+    if (_deliveryMethod == DeliveryMethod.selfPickup && _currentStep == 1) {
+      setState(() => _deliveryConfirmed = false);
+      _showDeliveryMethodSheet();
+      return;
+    }
     if (_currentStep > 0) {
       setState(() {
         _currentStep--;
@@ -198,25 +421,26 @@ class _PaymentPageState extends State<PaymentPage>
               children: [
                 // Header with back button and progress
                 _buildHeader(),
+                // Step indicator (hidden until delivery method confirmed)
+                if (_deliveryConfirmed) _buildStepIndicator(),
 
-                // Step indicator
-                _buildStepIndicator(),
-
-                // Page view with checkout steps
+                // Page view gated behind delivery confirmation
                 Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      _buildAddressStep(),
-                      _buildPaymentStep(),
-                      _buildConfirmationStep(),
-                    ],
-                  ),
+                  child: _deliveryConfirmed
+                      ? PageView(
+                          controller: _pageController,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _buildAddressStep(),
+                            _buildPaymentStep(),
+                            _buildConfirmationStep(),
+                          ],
+                        )
+                      : _buildDeliveryPendingPlaceholder(),
                 ),
 
-                // Bottom action buttons
-                _buildBottomActions(),
+                // Bottom action buttons (hidden until confirmed)
+                if (_deliveryConfirmed) _buildBottomActions(),
               ],
             ),
           ),
@@ -309,7 +533,9 @@ class _PaymentPageState extends State<PaymentPage>
                 Text(
                   _showConfetti
                       ? 'Payment Complete!'
-                      : 'Step ${_currentStep + 1} of 3',
+                      : _deliveryConfirmed
+                      ? 'Step ${_currentStep + 1} of 3'
+                      : 'Select delivery method to begin',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -326,6 +552,7 @@ class _PaymentPageState extends State<PaymentPage>
 
   String _getStepTitle() {
     if (_showConfetti) return 'Success!';
+    if (!_deliveryConfirmed) return 'Select Delivery Method';
     switch (_currentStep) {
       case 0:
         return 'Delivery Address';
@@ -698,12 +925,18 @@ class _PaymentPageState extends State<PaymentPage>
       child: Column(
         children: [
           _buildSummaryCard(
-            title: 'Delivery Address',
-            icon: Icons.location_on,
-            content:
-                _addressController.text.isEmpty && _cityController.text.isEmpty
-                ? 'Standard Delivery\n${widget.username}'
-                : '${_addressController.text}\n${_cityController.text}${_zipController.text.isNotEmpty ? ", ${_zipController.text}" : ""}',
+            title: _deliveryMethod == DeliveryMethod.selfPickup
+                ? 'Pickup Location'
+                : 'Delivery Address',
+            icon: _deliveryMethod == DeliveryMethod.selfPickup
+                ? Icons.store_mall_directory
+                : Icons.location_on,
+            content: _deliveryMethod == DeliveryMethod.selfPickup
+                ? 'Self Pickup at coordinates:\n${_pickupCoords.latitude.toStringAsFixed(6)}, ${_pickupCoords.longitude.toStringAsFixed(6)}'
+                : (_addressController.text.isEmpty &&
+                          _cityController.text.isEmpty
+                      ? 'Standard Delivery\n${widget.username}'
+                      : '${_addressController.text}\n${_cityController.text}${_zipController.text.isNotEmpty ? ", ${_zipController.text}" : ""}'),
             delay: 100,
           ),
           const SizedBox(height: 16),
@@ -1056,6 +1289,107 @@ class _PaymentPageState extends State<PaymentPage>
           ),
         );
       },
+    );
+  }
+
+  /// Placeholder content displayed before delivery method confirmation.
+  Widget _buildDeliveryPendingPlaceholder() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.delivery_dining, size: 72, color: Colors.grey),
+          const SizedBox(height: 16),
+          const Text(
+            'Choose self pickup or delivery to begin checkout.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _showDeliveryMethodSheet,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentColor,
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text('Select Delivery Method'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Card used in the delivery method bottom sheet.
+class _DeliveryOptionCard extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DeliveryOptionCard({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: selected
+            ? const Color(0xFF0066CC).withOpacity(0.12)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: selected ? const Color(0xFF0066CC) : Colors.grey.shade300,
+          width: selected ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 32,
+                  color: selected ? const Color(0xFF0066CC) : Colors.grey[700],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: selected
+                        ? const Color(0xFF0066CC)
+                        : const Color(0xFF2D3142),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -131,6 +131,38 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
                   ),
                 ),
               ],
+              if (order.deliveryMethod != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0066CC).withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        order.deliveryMethod == 'self_pickup'
+                            ? Icons.store_mall_directory
+                            : Icons.local_shipping,
+                        color: const Color(0xFF0066CC),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        order.deliveryMethod == 'self_pickup'
+                            ? 'Self Pickup'
+                            : 'Delivery',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0066CC),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,

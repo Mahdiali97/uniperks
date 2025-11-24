@@ -8,6 +8,7 @@ class Order {
   final int? voucherId;
   final String? voucherTitle;
   final int? voucherDiscount;
+  final String? deliveryMethod; // 'self_pickup' or 'delivery'
   final String status;
   final DateTime createdAt;
 
@@ -21,6 +22,7 @@ class Order {
     this.voucherId,
     this.voucherTitle,
     this.voucherDiscount,
+    this.deliveryMethod,
     this.status = 'paid',
     required this.createdAt,
   });
@@ -36,6 +38,7 @@ class Order {
       voucherId: json['voucher_id'] as int?,
       voucherTitle: json['voucher_title'] as String?,
       voucherDiscount: json['voucher_discount'] as int?,
+      deliveryMethod: json['delivery_method'] as String?,
       status: json['status'] as String? ?? 'paid',
       createdAt: DateTime.parse(json['created_at'] as String),
     );

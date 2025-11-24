@@ -10,6 +10,9 @@ class UserModel {
   String? phone;
   String? bio;
   String? avatarUrl;
+  String? addressLine;
+  String? city;
+  String? postalCode;
 
   UserModel({
     required this.userId,
@@ -19,6 +22,9 @@ class UserModel {
     this.phone,
     this.bio,
     this.avatarUrl,
+    this.addressLine,
+    this.city,
+    this.postalCode,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -29,6 +35,9 @@ class UserModel {
     phone: json['phone'] as String?,
     bio: json['bio'] as String?,
     avatarUrl: json['avatar_url'] as String?,
+    addressLine: json['address_line'] as String?,
+    city: json['city'] as String?,
+    postalCode: json['postal_code'] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -38,6 +47,9 @@ class UserModel {
     'phone': phone,
     'bio': bio,
     'avatar_url': avatarUrl,
+    'address_line': addressLine,
+    'city': city,
+    'postal_code': postalCode,
   };
 
   Map<String, dynamic> toUpdatePayload({String? newPassword}) {
@@ -252,6 +264,9 @@ class UserService {
     String? phone,
     String? bio,
     String? avatarUrl,
+    String? addressLine,
+    String? city,
+    String? postalCode,
   }) async {
     try {
       final updateData = <String, dynamic>{};
@@ -260,6 +275,9 @@ class UserService {
       if (phone != null) updateData['phone'] = phone;
       if (bio != null) updateData['bio'] = bio;
       if (avatarUrl != null) updateData['avatar_url'] = avatarUrl;
+      if (addressLine != null) updateData['address_line'] = addressLine;
+      if (city != null) updateData['city'] = city;
+      if (postalCode != null) updateData['postal_code'] = postalCode;
 
       if (updateData.isEmpty) return false;
 
@@ -430,6 +448,9 @@ class UserService {
     String? newBio,
     String? newPassword,
     String? newAvatarUrl,
+    String? newAddressLine,
+    String? newCity,
+    String? newPostalCode,
   }) async {
     try {
       // First, verify the user exists
@@ -468,6 +489,15 @@ class UserService {
       }
       if (newAvatarUrl != null && newAvatarUrl.isNotEmpty) {
         updateData['avatar_url'] = newAvatarUrl;
+      }
+      if (newAddressLine != null && newAddressLine.isNotEmpty) {
+        updateData['address_line'] = newAddressLine;
+      }
+      if (newCity != null && newCity.isNotEmpty) {
+        updateData['city'] = newCity;
+      }
+      if (newPostalCode != null && newPostalCode.isNotEmpty) {
+        updateData['postal_code'] = newPostalCode;
       }
 
       if (updateData.isEmpty) {
