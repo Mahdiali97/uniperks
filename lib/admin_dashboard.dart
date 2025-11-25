@@ -54,15 +54,20 @@ class _AdminDashboardState extends State<AdminDashboard>
     }
   }
 
-  void _logout(BuildContext context) {
+  Future<void> _logout(BuildContext context) async {
     // Also sign out Supabase session if any (admin auth)
     try {
-      Supabase.instance.client.auth.signOut();
+      await Supabase.instance.client.auth.signOut();
     } catch (_) {}
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginPage()),
-    );
+
+    await UserService.clearLoginState();
+
+    if (context.mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+    }
   }
 
   @override
@@ -153,15 +158,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(
-                      onPressed: () {
-                        try {
-                          Supabase.instance.client.auth.signOut();
-                        } catch (_) {}
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginPage()),
-                        );
-                      },
+                      onPressed: () => _logout(context),
                       child: const Text('Sign out'),
                     ),
                   ],

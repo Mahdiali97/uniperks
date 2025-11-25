@@ -181,7 +181,7 @@ class _PaymentPageState extends State<PaymentPage>
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'Pickup Location: ${_pickupCoords.latitude.toStringAsFixed(6)}, ${_pickupCoords.longitude.toStringAsFixed(6)}',
+                                'Pickup Location: UPSI Holding sdn bhd',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -375,10 +375,12 @@ class _PaymentPageState extends State<PaymentPage>
 
   void _previousStep() {
     // If self pickup is selected and we are at the first actionable step (payment),
-    // don't navigate back to the address step. Optionally, re-open delivery selection.
+    // don't navigate back to the address step. Just reset to delivery selection.
     if (_deliveryMethod == DeliveryMethod.selfPickup && _currentStep == 1) {
-      setState(() => _deliveryConfirmed = false);
-      _showDeliveryMethodSheet();
+      setState(() {
+        _deliveryConfirmed = false;
+        _currentStep = 0;
+      });
       return;
     }
     if (_currentStep > 0) {

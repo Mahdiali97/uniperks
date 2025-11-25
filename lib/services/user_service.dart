@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 
 /* ===== User Model ===== */
@@ -519,6 +520,72 @@ class UserService {
     } catch (e) {
       print('❌ Update Profile Error: $e');
       return (ok: false, message: 'Failed to update profile: $e');
+    }
+  }
+
+  // Save login state
+  static Future<void> saveLoginState(
+    String username, {
+    bool remember = true,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('logged_in_user', username);
+      await prefs.setBool('is_logged_in', true);
+      await prefs.setBool('remember_me', remember);
+    } catch (e) {
+      print('Save Login State Error: $e');
+    }
+  }
+
+  // Get saved login state
+  static Future<String?> getSavedUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+      final remember = prefs.getBool('remember_me') ?? false;
+      if (isLoggedIn && remember) {
+        return prefs.getString('logged_in_user');
+      }
+      return null;
+    } catch (e) {
+      print('Get Saved User Error: $e');
+      return null;
+    }
+  }
+
+  // Clear login state
+  static Future<void> clearLoginState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('logged_in_user');
+      await prefs.setBool('is_logged_in', false);
+      await prefs.setBool('remember_me', false);
+    } catch (e) {
+      print('Clear Login State Error: $e');
+    }
+  }
+
+  // Explicitly set remember preference without altering login state
+  static Future<void> setRememberPreference(bool remember) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('remember_me', remember);
+    } catch (e) {
+      print('Set Remember Preference Error: $e');
+    }
+  }
+
+  // Check whether app should attempt auto-login
+  static Future<bool> shouldAutoLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+      final remember = prefs.getBool('remember_me') ?? false;
+      return isLoggedIn && remember;
+    } catch (e) {
+      print('Should Auto Login Error: $e');
+      return false;
     }
   }
 }

@@ -2,11 +2,70 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import '../auth/login_page.dart';
+import 'package:uniperks/services/user_service.dart';
+import 'package:uniperks/admin_dashboard.dart';
+import 'package:uniperks/user_dashboard.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// 🎯 Main Logo Reveal Screen
 /// This is the entry point for the magical logo reveal animation
 class LogoRevealScreen extends StatelessWidget {
   const LogoRevealScreen({super.key});
+
+  Future<void> _handlePostAnimation(BuildContext context) async {
+    try {
+      final shouldAuto = await UserService.shouldAutoLogin();
+      if (shouldAuto) {
+        // Prefer Supabase session for admin
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session != null) {
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const AdminDashboard(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) =>
+                      FadeTransition(opacity: animation, child: child),
+              transitionDuration: const Duration(milliseconds: 400),
+            ),
+          );
+          return;
+        }
+
+        final savedUser = await UserService.getSavedUser();
+        if (savedUser != null) {
+          final role = await UserService.getUserRole(savedUser);
+          final isAdmin = role == 'admin' || UserService.isAdminUser(savedUser);
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => isAdmin
+                  ? const AdminDashboard()
+                  : UserDashboard(username: savedUser),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) =>
+                      FadeTransition(opacity: animation, child: child),
+              transitionDuration: const Duration(milliseconds: 400),
+            ),
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      // Fall through to login
+      print('Auto-login gating error: $e');
+    }
+
+    // Default: go to login
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const LoginPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            FadeTransition(opacity: animation, child: child),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,17 +111,7 @@ class LogoRevealScreen extends StatelessWidget {
 
         // 🏁 Callback when animation completes - navigate to login
         onAnimationComplete: () {
-          Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) =>
-                  const LoginPage(),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-              transitionDuration: const Duration(milliseconds: 400),
-            ),
-          );
+          _handlePostAnimation(context);
         },
 
         // 🌈 Background gradient colors (animates through these)

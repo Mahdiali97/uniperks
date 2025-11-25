@@ -5,6 +5,7 @@ import 'package:uniperks/admin_dashboard.dart';
 import 'package:uniperks/user_dashboard.dart';
 import 'package:uniperks/widgets/animated_border_textfield.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -19,15 +20,85 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _rememberMe = false;
 
   @override
   void initState() {
     super.initState();
+    _loadRememberPreference();
+    _checkSavedLogin();
+
     // Initialize default users in background (non-blocking)
     // This is low priority and doesn't delay UI rendering
     UserService.initializeDefaultUsers().catchError((e) {
       print('Background initialization error: $e');
     });
+  }
+
+  Future<void> _checkSavedLogin() async {
+    // First decide if we should auto-login based on our own preference store
+    final shouldAuto = await UserService.shouldAutoLogin();
+    if (shouldAuto) {
+      // Prefer Supabase session for admin accounts
+      try {
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session != null && mounted) {
+          print('Auto-login via Supabase session (remember enabled)');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const AdminDashboard()),
+            );
+          });
+          return;
+        }
+      } catch (_) {}
+
+      final savedUser = await UserService.getSavedUser();
+      if (savedUser != null && mounted) {
+        print('Auto-login (remember enabled) for user: $savedUser');
+        final role = await UserService.getUserRole(savedUser);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (role == 'admin' || UserService.isAdminUser(savedUser)) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const AdminDashboard()),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => UserDashboard(username: savedUser),
+              ),
+            );
+          }
+        });
+        return;
+      }
+    }
+
+    // If NOT remembering but an active Supabase session exists, sign it out so login screen shows
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null && !_rememberMe) {
+        print('Supabase session present but remember disabled. Signing out.');
+        await Supabase.instance.client.auth.signOut();
+      }
+    } catch (e) {
+      print('Supabase signOut check error: $e');
+    }
+  }
+
+  Future<void> _loadRememberPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final remember = prefs.getBool('remember_me') ?? false;
+      if (mounted) {
+        setState(() => _rememberMe = remember);
+      }
+    } catch (e) {
+      print('Load remember preference error: $e');
+    }
   }
 
   void _login() async {
@@ -52,6 +123,14 @@ class _LoginPageState extends State<LoginPage> {
 
             if (res.session != null && mounted) {
               // Successfully logged in with Supabase - Admin user
+              if (_rememberMe) {
+                await UserService.saveLoginState(username, remember: true);
+              } else {
+                // Mark as not remembered; keep session for this run but prevent future auto-login
+                await UserService.clearLoginState();
+                await UserService.setRememberPreference(false);
+              }
+
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const AdminDashboard()),
@@ -71,6 +150,11 @@ class _LoginPageState extends State<LoginPage> {
 
           if (role == 'admin' || UserService.isAdminUser(username)) {
             // Admin user from database
+            if (_rememberMe) {
+              await UserService.saveLoginState(username, remember: true);
+            } else {
+              await UserService.clearLoginState();
+            }
             if (mounted) {
               Navigator.pushReplacement(
                 context,
@@ -79,6 +163,11 @@ class _LoginPageState extends State<LoginPage> {
             }
           } else {
             // Regular user - go to user dashboard
+            if (_rememberMe) {
+              await UserService.saveLoginState(username, remember: true);
+            } else {
+              await UserService.clearLoginState();
+            }
             if (mounted) {
               Navigator.pushReplacement(
                 context,
@@ -268,7 +357,25 @@ class _LoginPageState extends State<LoginPage> {
                             },
                             onSubmitted: (_) => _login(),
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 16),
+
+                          // Remember Me Checkbox
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: _rememberMe,
+                                activeColor: const Color(0xFF0066CC),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _rememberMe = value ?? false;
+                                  });
+                                },
+                              ),
+                              const Text('Remember Me'),
+                            ],
+                          ),
+
+                          const SizedBox(height: 16),
 
                           // Login Button
                           SizedBox(

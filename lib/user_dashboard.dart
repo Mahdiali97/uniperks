@@ -9,6 +9,7 @@ import 'package:uniperks/pages/profile_page.dart';
 import 'package:uniperks/services/cart_service.dart';
 import 'package:uniperks/services/user_coins_service.dart';
 import 'package:uniperks/services/product_service.dart';
+import 'package:uniperks/services/user_service.dart';
 import 'package:uniperks/models/product.dart';
 
 class UserDashboard extends StatefulWidget {
@@ -58,11 +59,14 @@ class _UserDashboardState extends State<UserDashboard> {
     });
   }
 
-  void _logout(BuildContext context) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginPage()),
-    );
+  void _logout(BuildContext context) async {
+    await UserService.clearLoginState(); // Clear saved login
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+    }
   }
 
   Future<List<Product>> _getFilteredProducts() async {
