@@ -2,6 +2,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/cart_item.dart';
 import '../models/order.dart';
 import '../models/order_item.dart';
+import '../models/voucher.dart';
+import 'voucher_service.dart';
 
 class OrderService {
   static final _supabase = Supabase.instance.client;
@@ -19,8 +21,35 @@ class OrderService {
     required int itemCount,
     Map<String, dynamic>? voucher,
     String? deliveryMethod, // 'self_pickup' or 'delivery'
+    Voucher?
+    voucherObject, // Optional strongly-typed voucher for category discount
   }) async {
     try {
+      // If a voucher object provided and discountAmount not precomputed, derive category discount
+      if (voucherObject != null && discountAmount == 0) {
+        // Build simple item maps for discount computation
+        final itemMaps = cartItems
+            .map(
+              (c) => {
+                'category': c.product.category,
+                'line_total': c.totalPrice,
+              },
+            )
+            .toList();
+        final computedDiscount = VoucherService.computeCategoryDiscountAmount(
+          itemMaps,
+          voucherObject,
+        );
+        discountAmount = computedDiscount;
+        totalAmount = (subtotal - discountAmount).clamp(0.0, double.maxFinite);
+        // If voucher map not passed, create it for persistence
+        voucher ??= {
+          'voucher_id': voucherObject.id,
+          'voucher_title': voucherObject.title,
+          'voucher_discount': voucherObject.discount,
+        };
+      }
+
       final orderInsert = await _supabase
           .from(_ordersTable)
           .insert({
@@ -91,5 +120,34 @@ class OrderService {
       print('Get Order Items Error: $e');
       return [];
     }
+  }
+
+  /// Convenience: calculate pricing (subtotal, discount, total) given cart items and optional voucher.
+  /// Does not persist anything; useful for UI preview before calling createOrder.
+  static Map<String, double> calculateTotals({
+    required List<CartItem> cartItems,
+    Voucher? voucherObject,
+  }) {
+    final subtotal = cartItems.fold<double>(0, (sum, c) => sum + c.totalPrice);
+    final itemCount = cartItems.fold<int>(0, (sum, c) => sum + c.quantity);
+    double discount = 0.0;
+    if (voucherObject != null) {
+      final itemMaps = cartItems
+          .map(
+            (c) => {'category': c.product.category, 'line_total': c.totalPrice},
+          )
+          .toList();
+      discount = VoucherService.computeCategoryDiscountAmount(
+        itemMaps,
+        voucherObject,
+      );
+    }
+    final total = (subtotal - discount).clamp(0.0, double.maxFinite);
+    return {
+      'subtotal': subtotal,
+      'discount': discount,
+      'total': total,
+      'itemCount': itemCount.toDouble(),
+    };
   }
 }

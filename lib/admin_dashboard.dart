@@ -11,6 +11,9 @@ import 'package:uniperks/models/product.dart';
 import 'package:uniperks/models/voucher.dart';
 import 'package:uniperks/models/quiz_question.dart';
 import 'package:uniperks/models/quiz_module.dart';
+import 'package:uniperks/models/order.dart';
+import 'package:uniperks/services/analytics_service.dart';
+import 'package:uniperks/services/order_service.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -30,7 +33,7 @@ class _AdminDashboardState extends State<AdminDashboard>
   void initState() {
     super.initState();
     _loadUsers();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   Future<void> _loadUsers() async {
@@ -213,8 +216,13 @@ class _AdminDashboardState extends State<AdminDashboard>
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white70,
               indicatorColor: Colors.white,
+              isScrollable: true,
+              tabAlignment: TabAlignment.center,
+              padding: EdgeInsets.zero,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
               tabs: const [
                 Tab(icon: Icon(Icons.dashboard), text: 'Overview'),
+                Tab(icon: Icon(Icons.analytics), text: 'Analytics'),
                 Tab(icon: Icon(Icons.people), text: 'Users'),
                 Tab(icon: Icon(Icons.quiz), text: 'Quiz'),
                 Tab(icon: Icon(Icons.inventory), text: 'Products'),
@@ -226,6 +234,7 @@ class _AdminDashboardState extends State<AdminDashboard>
             controller: _tabController,
             children: [
               _buildOverviewTab(),
+              _buildAnalyticsTab(),
               _buildUsersTab(),
               _buildQuizTab(),
               _buildProductsTab(),
@@ -238,41 +247,28 @@ class _AdminDashboardState extends State<AdminDashboard>
   }
 
   Widget _buildOverviewTab() {
-    return FutureBuilder<List<Product>>(
-      future: ProductService.getAllProducts(),
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        ProductService.getAllProducts(),
+        AnalyticsService.getTotalOrders(),
+        AnalyticsService.getTotalRevenue(),
+        AnalyticsService.getAverageOrderValue(),
+      ]),
       builder: (context, snapshot) {
-        final totalProducts = snapshot.data ?? [];
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final totalProducts = (snapshot.data?[0] as List<Product>?) ?? [];
+        final totalOrders = (snapshot.data?[1] as int?) ?? 0;
+        final totalRevenue = (snapshot.data?[2] as double?) ?? 0.0;
+        final avgOrderValue = (snapshot.data?[3] as double?) ?? 0.0;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.admin_panel_settings,
-                        size: 40,
-                        color: Colors.deepPurple,
-                      ),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Welcome, Admin!',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          const Text('Manage your UniPerks system'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               const SizedBox(height: 20),
               Text(
                 'System Statistics',
@@ -283,24 +279,51 @@ class _AdminDashboardState extends State<AdminDashboard>
                 children: [
                   Expanded(
                     child: _buildStatCard(
-                      'Total Users',
-                      '${registeredUsers.length}',
-                      Icons.people,
+                      'Total Orders',
+                      '$totalOrders',
+                      Icons.shopping_cart,
                       Colors.blue,
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _buildStatCard(
-                      'Products',
-                      '${totalProducts.length}',
-                      Icons.inventory,
+                      'Total Revenue',
+                      'RM${totalRevenue.toStringAsFixed(0)}',
+                      Icons.attach_money,
+                      Colors.green,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      'Total Users',
+                      '${registeredUsers.length}',
+                      Icons.people,
+                      Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Avg Order',
+                      'RM${avgOrderValue.toStringAsFixed(0)}',
+                      Icons.trending_up,
                       Colors.purple,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 20),
+              Text(
+                'Products Available: ${totalProducts.length}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
               Text(
                 'Quick Actions',
                 style: Theme.of(context).textTheme.titleLarge,
@@ -374,6 +397,368 @@ class _AdminDashboardState extends State<AdminDashboard>
         ),
       ),
     );
+  }
+
+  Widget _buildAnalyticsTab() {
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        AnalyticsService.getTotalOrders(),
+        AnalyticsService.getTotalRevenue(),
+        AnalyticsService.getTopProducts(limit: 5),
+        AnalyticsService.getTopCustomers(limit: 5),
+        AnalyticsService.getOrdersByDeliveryMethod(),
+        AnalyticsService.getRecentOrders(limit: 10),
+        AnalyticsService.getVoucherStats(),
+      ]),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final totalOrders = (snapshot.data?[0] as int?) ?? 0;
+        final totalRevenue = (snapshot.data?[1] as double?) ?? 0.0;
+        final topProducts =
+            (snapshot.data?[2] as List<Map<String, dynamic>>?) ?? [];
+        final topCustomers =
+            (snapshot.data?[3] as List<Map<String, dynamic>>?) ?? [];
+        final deliveryMethods = (snapshot.data?[4] as Map<String, int>?) ?? {};
+        final recentOrders = (snapshot.data?[5] as List<Order>?) ?? [];
+        final voucherStats = (snapshot.data?[6] as Map<String, dynamic>?) ?? {};
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            setState(() {});
+          },
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Text(
+                  '📊 Sales Analytics',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 20),
+
+                // Key Metrics Row
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMetricCard(
+                        'Total Orders',
+                        '$totalOrders',
+                        Icons.receipt_long,
+                        Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildMetricCard(
+                        'Revenue',
+                        'RM${totalRevenue.toStringAsFixed(0)}',
+                        Icons.attach_money,
+                        Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Top Products Section
+                Text(
+                  '🏆 Top Selling Products',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                if (topProducts.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Text('No product sales yet'),
+                    ),
+                  )
+                else
+                  ...topProducts.map(
+                    (product) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.purple.withOpacity(0.1),
+                          child: const Icon(
+                            Icons.shopping_bag,
+                            color: Colors.purple,
+                          ),
+                        ),
+                        title: Text(product['product_name'] as String),
+                        subtitle: Text('${product['units_sold']} units sold'),
+                        trailing: Text(
+                          'RM${(product['revenue'] as double).toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 24),
+
+                // Top Customers Section
+                Text(
+                  '👥 Top Customers',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                if (topCustomers.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Text('No customer purchases yet'),
+                    ),
+                  )
+                else
+                  ...topCustomers.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final customer = entry.value;
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.orange.withOpacity(0.1),
+                          child: Text(
+                            '${index + 1}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange,
+                            ),
+                          ),
+                        ),
+                        title: Text(customer['username'] as String),
+                        trailing: Text(
+                          'RM${(customer['total_spent'] as double).toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                const SizedBox(height: 24),
+
+                // Delivery Methods Section
+                Text(
+                  '🚚 Delivery Methods',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: deliveryMethods.entries.map((entry) {
+                        if (entry.key == 'Unknown' && entry.value == 0) {
+                          return const SizedBox.shrink();
+                        }
+                        final percentage = totalOrders > 0
+                            ? (entry.value / totalOrders * 100).toStringAsFixed(
+                                1,
+                              )
+                            : '0.0';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  entry.key,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                              ),
+                              Text(
+                                '${entry.value} ($percentage%)',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Voucher Usage Stats
+                if (voucherStats.isNotEmpty) ...[
+                  Text(
+                    '🎫 Voucher Usage',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          _buildVoucherStatRow(
+                            'Vouchers Used',
+                            '${voucherStats['voucher_usage_count']} (${voucherStats['voucher_usage_percentage']}%)',
+                          ),
+                          const Divider(height: 24),
+                          _buildVoucherStatRow(
+                            'Total Discounts Given',
+                            'RM${(voucherStats['total_discounts_given'] as double).toStringAsFixed(0)}',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Recent Orders Section
+                Text(
+                  '📋 Recent Orders',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                if (recentOrders.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Text('No orders yet'),
+                    ),
+                  )
+                else
+                  ...recentOrders.map(
+                    (order) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(
+                            0xFF0066CC,
+                          ).withOpacity(0.1),
+                          child: Text(
+                            '#${order.id}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0066CC),
+                            ),
+                          ),
+                        ),
+                        title: Text(order.username),
+                        subtitle: Text(
+                          '${order.itemCount} items • ${_formatDate(order.createdAt)}',
+                        ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'RM${order.totalAmount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            ),
+                            if (order.deliveryMethod != null)
+                              Text(
+                                order.deliveryMethod == 'delivery'
+                                    ? '🚚'
+                                    : '📦',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMetricCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Icon(icon, size: 32, color: color),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              title,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoucherStatRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 16)),
+        Text(
+          value,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: Colors.green,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inDays == 0) {
+      if (diff.inHours == 0) {
+        return '${diff.inMinutes}m ago';
+      }
+      return '${diff.inHours}h ago';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays}d ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
   }
 
   Widget _buildUsersTab() {

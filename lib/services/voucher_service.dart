@@ -218,6 +218,7 @@ class VoucherService {
           .select()
           .eq('username', username)
           .gt('expires_at', now)
+          .eq('used', false)
           .order('redeemed_at', ascending: false);
 
       return (data as List)
@@ -263,6 +264,20 @@ class VoucherService {
     }
   }
 
+  // Mark a redeemed voucher as used (one-time usage enforcement)
+  static Future<bool> markRedeemedVoucherUsed(int id) async {
+    try {
+      await _supabase
+          .from(_redeemedTable)
+          .update({'used': true, 'used_at': DateTime.now().toIso8601String()})
+          .eq('id', id);
+      return true;
+    } catch (e) {
+      print('Mark Redeemed Voucher Used Error: $e');
+      return false;
+    }
+  }
+
   // Get redemption count for a specific voucher (for maxClaims tracking)
   static Future<int> getRedemptionCount(int voucherId) async {
     try {
@@ -287,6 +302,92 @@ class VoucherService {
       print('Get Redemption Count Error: $e');
       return 0;
     }
+  }
+
+  // Compute discount amount against items that match the voucher's category.
+  // Expects each item to include at least: {'category': String, 'line_total': num}
+  // Returns the total discount to subtract from order/cart total.
+  static double computeCategoryDiscountAmount(
+    List<Map<String, dynamic>> items,
+    Voucher voucher,
+  ) {
+    print('=== VOUCHER DISCOUNT CALCULATION ===');
+    print('Voucher: ${voucher.title}');
+    print('Voucher Category: ${voucher.category}');
+    print('Voucher Discount: ${voucher.discount}%');
+    print('Voucher Active: ${voucher.active}');
+
+    if (!voucher.active) {
+      print('Voucher is NOT active - returning 0');
+      return 0.0;
+    }
+    if (voucher.discount <= 0) {
+      print('Voucher discount is <= 0 - returning 0');
+      return 0.0;
+    }
+
+    double discount = 0.0;
+    for (final item in items) {
+      final itemCategory = item['category'] as String?;
+      final lineTotalNum = item['line_total'];
+      if (itemCategory == null || lineTotalNum == null) continue;
+      final lineTotal = (lineTotalNum as num).toDouble();
+
+      print(
+        'Item Category: "$itemCategory" vs Voucher Category: "${voucher.category}"',
+      );
+      print('Match: ${itemCategory == voucher.category}');
+
+      if (itemCategory == voucher.category) {
+        // Percentage-based discount across matching category items
+        final d = (voucher.discount / 100.0) * lineTotal;
+        print('  ✓ MATCH! Line Total: RM$lineTotal, Discount: RM$d');
+        discount += d;
+      } else {
+        print('  ✗ No match - skipping');
+      }
+    }
+    print('Total Discount: RM$discount');
+    print('====================================');
+
+    // Prevent negative/NaN
+    if (discount.isNaN || discount.isInfinite) return 0.0;
+    return discount.clamp(0.0, double.maxFinite);
+  }
+
+  // Apply discount to items and return adjusted items + discount amount.
+  // The returned map contains:
+  // - 'items': List<Map> with updated 'line_total'
+  // - 'discount_amount': double total discount applied
+  static Map<String, dynamic> applyCategoryDiscountToItems(
+    List<Map<String, dynamic>> items,
+    Voucher voucher,
+  ) {
+    if (!voucher.active || voucher.discount <= 0) {
+      return {'items': items, 'discount_amount': 0.0};
+    }
+
+    double totalDiscount = 0.0;
+    final adjusted = items.map((item) {
+      final itemCategory = item['category'] as String?;
+      final lineTotalNum = item['line_total'];
+      if (itemCategory == null || lineTotalNum == null) return item;
+
+      final lineTotal = (lineTotalNum as num).toDouble();
+      if (itemCategory == voucher.category) {
+        final d = (voucher.discount / 100.0) * lineTotal;
+        totalDiscount += d;
+        final newLineTotal = (lineTotal - d).clamp(0.0, double.maxFinite);
+        return {...item, 'line_total': newLineTotal};
+      }
+      return item;
+    }).toList();
+
+    if (totalDiscount.isNaN || totalDiscount.isInfinite) {
+      totalDiscount = 0.0;
+    }
+
+    return {'items': adjusted, 'discount_amount': totalDiscount};
   }
 }
 

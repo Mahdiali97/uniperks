@@ -608,13 +608,19 @@ class _VoucherPageState extends State<VoucherPage> {
                     decoration: BoxDecoration(
                       color: voucher.isExpired
                           ? Colors.red.withOpacity(0.1)
-                          : Colors.green.withOpacity(0.1),
+                          : (voucher.isUsed
+                                ? Colors.orange.withOpacity(0.1)
+                                : Colors.green.withOpacity(0.1)),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      voucher.isExpired ? 'Expired' : 'Active',
+                      voucher.isExpired
+                          ? 'Expired'
+                          : (voucher.isUsed ? 'Used' : 'Active'),
                       style: TextStyle(
-                        color: voucher.isExpired ? Colors.red : Colors.green,
+                        color: voucher.isExpired
+                            ? Colors.red
+                            : (voucher.isUsed ? Colors.orange : Colors.green),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),

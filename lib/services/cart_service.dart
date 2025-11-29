@@ -55,10 +55,13 @@ class CartService {
         final voucherId = cartData['applied_voucher_id'] as int?;
         final voucherTitle = cartData['applied_voucher_title'] as String?;
         final voucherDiscount = cartData['applied_voucher_discount'] as int?;
+        final redeemedVoucherId =
+            cartData['applied_redeemed_voucher_id'] as int?;
 
         if (voucherId != null && voucherTitle != null) {
           return {
             'voucher_id': voucherId,
+            'redeemed_voucher_id': redeemedVoucherId,
             'voucher_title': voucherTitle,
             'voucher_discount': voucherDiscount,
             'voucher_category': null, // Will fetch from Voucher table instead
@@ -298,6 +301,7 @@ class CartService {
               'applied_voucher_discount': _inferVoucherDiscountFromTitle(
                 redeemedVoucher.voucherTitle,
               ),
+              'applied_redeemed_voucher_id': redeemedVoucher.id,
             })
             .eq('username', username);
 
@@ -339,6 +343,7 @@ class CartService {
             'applied_voucher_id': null,
             'applied_voucher_title': null,
             'applied_voucher_discount': null,
+            'applied_redeemed_voucher_id': null,
           })
           .eq('username', username);
 

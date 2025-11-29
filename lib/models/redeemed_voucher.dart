@@ -8,6 +8,8 @@ class RedeemedVoucher {
   final int validDays;
   final DateTime redeemedAt;
   final DateTime expiresAt;
+  final bool used;
+  final DateTime? usedAt;
 
   RedeemedVoucher({
     required this.id,
@@ -19,6 +21,8 @@ class RedeemedVoucher {
     required this.validDays,
     required this.redeemedAt,
     required this.expiresAt,
+    this.used = false,
+    this.usedAt,
   });
 
   factory RedeemedVoucher.fromJson(Map<String, dynamic> json) {
@@ -32,9 +36,14 @@ class RedeemedVoucher {
       validDays: json['valid_days'] as int,
       redeemedAt: DateTime.parse(json['redeemed_at'] as String),
       expiresAt: DateTime.parse(json['expires_at'] as String),
+      used: json['used'] as bool? ?? false,
+      usedAt: json['used_at'] != null
+          ? DateTime.tryParse(json['used_at'] as String)
+          : null,
     );
   }
 
   bool get isExpired => DateTime.now().isAfter(expiresAt);
-  bool get isActive => !isExpired;
+  bool get isUsed => used;
+  bool get isActive => !isExpired && !isUsed;
 }
